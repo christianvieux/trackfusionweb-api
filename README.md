@@ -33,22 +33,19 @@ changes do not change these hosted links.
 
 ## Run it locally
 
-> **Recommended:** use Docker. It starts the API and everything it needs. You
-> do not need to install PostgreSQL, Redis, Python, or FFmpeg yourself.
+You can run the complete environment with Docker or run the API natively with
+Nodemon. Both modes use the same `.env` format and keep local storage independent
+of AWS.
 
-> **About the URLs in this guide:** every local URL below is a default from
-> [`.env.example`](.env.example). If you change a local port, use your new value
-> instead. The configuration table after step 5 shows exactly what to update.
-
-### 1. Install the two requirements
+### 1. Install the common requirements
 
 - [Git](https://git-scm.com/downloads)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker
-  Engine with Compose)
+- Node.js 22 or newer with npm 10 or newer
 
-Make sure Docker is open and running before continuing.
+Docker Desktop (or Docker Engine with Compose) is needed only for Docker mode or
+when you choose to run supporting services in containers.
 
-### 2. Download the project
+### 2. Download and set up the project
 
 ```bash
 git clone https://github.com/christianvieux/trackfusionweb-api.git
@@ -58,46 +55,77 @@ cd trackfusionweb-api
 If you already downloaded the project, open a terminal in its folder and skip
 this step.
 
-### 3. Create your local settings file
+```bash
+npm run setup
+```
 
-If an `.env` file already exists, keep it and skip this command.
+Setup checks Node and npm, installs the lockfile with `npm ci`, and creates `.env`
+when it is missing. New files receive generated local session/JWT secrets and a
+database password; their values are never printed. Existing `.env` files are
+never changed. If an existing file is stale, setup lists only the setting names
+that need attention.
+
+Setup does **not** install Docker, PostgreSQL, Redis, object storage, SMTP,
+Python, FFmpeg, or other system packages.
+
+### With Docker: quickest full environment
+
+Start the API and every supporting service in the foreground:
 
 ```bash
-cp .env.example .env
+npm run dev:docker
 ```
 
-Open `.env` and replace the example values for these three settings:
+Press `Ctrl+C` to stop the attached session. Docker prepares the database and
+local storage automatically and captures development email in Mailpit.
 
-```dotenv
-SESSION_SECRET=use_a_long_random_value_here
-JWT_SECRET=use_a_different_long_random_value_here
-POSTGRES_PASSWORD=choose_a_local_database_password
-```
-
-Use at least 32 random characters for each secret. These values are only for
-your computer and must not be committed to Git. When using Docker, leave the
-other settings at their defaults.
-
-### 4. Start the API
+For background mode, use the existing Compose command:
 
 ```bash
 docker compose up -d --build
 ```
 
-This builds the API, starts all local services in the background, and prepares
-the database automatically. The first start can take a few minutes.
+### Without Docker: native Nodemon development
 
-For an attached development session with live API logs, use:
+Install or connect to compatible PostgreSQL, Redis, S3-compatible storage, and
+SMTP services. Install Python and FFmpeg if you use audio processing. Update the
+corresponding URLs and executable path in `.env`, then run:
 
 ```bash
+npm run doctor
+npm run db:init
+npm run storage:init
 npm run dev
 ```
 
-That command uses the same Docker Compose stack. Press `Ctrl+C` to stop the
-attached session. Do not run it at the same time as a separately started API on
-the same port.
+`npm run dev` runs the API through Nodemon. Its preflight doctor prevents startup
+when required services are unavailable or another API process already owns the
+configured port.
 
-### 5. View the API
+For audio features, create a Python 3.12 virtual environment, install
+`requirements.txt`, and set `PYTHON_EXECUTABLE` to its Python binary. On Windows
+that is normally `venv\Scripts\python.exe`; on macOS/Linux it is normally
+`venv/bin/python`. Install FFmpeg separately and make it available on `PATH`.
+
+SMTP can point to any development inbox. To run without email delivery, set
+`EMAIL_PROVIDER=disabled`, `EMAIL_DELIVERY_ENABLED=false`, and both development
+token-exposure flags to `true`. Those exposure flags are rejected in production.
+
+You can also use Docker only for supporting services while Nodemon runs on the
+host:
+
+```bash
+docker compose stop api
+docker compose up -d postgres redis storage storage-init mailpit
+npm run doctor
+npm run db:init
+npm run dev
+```
+
+PostgreSQL and Redis are bound to localhost only. This support-services command
+does not start the Docker API, so it does not compete with Nodemon for port 8081.
+
+### View the API
 
 With the default settings, open
 [http://127.0.0.1:8081/health](http://127.0.0.1:8081/health). A working API
@@ -119,6 +147,8 @@ The addresses in this table assume `.env` still has its example values.
 | --- | --- | --- |
 | `http://127.0.0.1:8081/health` | Confirms that the API is running | `LOCAL_API_PORT` |
 | `http://127.0.0.1:8081/tracks/public` | Returns public tracks as JSON | `LOCAL_API_PORT` |
+| `127.0.0.1:5432` | PostgreSQL for native API development | `LOCAL_POSTGRES_PORT` and `DATABASE_URL` |
+| `127.0.0.1:6379` | Redis for native API development | `LOCAL_REDIS_PORT` and `REDIS_URL` |
 | `http://127.0.0.1:9000` | Serves signed local audio and image URLs | `LOCAL_STORAGE_PORT` |
 | `http://127.0.0.1:8025` | Shows local verification and password-reset emails | `LOCAL_MAILPIT_UI_PORT` |
 
@@ -142,7 +172,11 @@ Run these commands from the API folder.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Builds and runs the supported Docker development API in the foreground |
+| `npm run setup` | Installs locked Node dependencies and safely prepares `.env` |
+| `npm run doctor` | Checks native configuration, services, tools, and the API port without changing them |
+| `npm run dev` | Checks native prerequisites and starts the API with Nodemon |
+| `npm run dev:host` | Compatibility alias for `npm run dev` |
+| `npm run dev:docker` | Starts the complete Docker development environment |
 | `docker compose up -d` | Starts the existing local setup in the background |
 | `docker compose up -d --build` | Rebuilds the API and starts it; use this after code or package changes |
 | `docker compose ps` | Shows which services are running and whether they are healthy |
@@ -175,28 +209,29 @@ docker compose up -d --build
 ### Docker says a required value is missing
 
 Make sure `.env` exists in the API folder and that `POSTGRES_PASSWORD` has a
-value. If the file is missing, repeat step 3 above. Do not overwrite an existing
+value. Run `npm run setup` if the file is missing. Do not overwrite an existing
 `.env` file unless you intend to replace your local settings.
 
-### Nodemon reports missing provider settings
+### Native development does not start
 
-`npm run dev` uses Docker Compose and supplies the local storage and email
-provider settings automatically. If a terminal instead starts
-`nodemon index.js`, update the branch and confirm `package.json` contains the
-current development scripts.
+Run `npm run doctor`. It identifies missing configuration by setting name and
+checks whether PostgreSQL, Redis, S3-compatible storage, SMTP, Python, FFmpeg,
+and the API port are available. It never prints credentials.
 
-The advanced `npm run dev:host` command intentionally runs Node directly. It
-requires every setting from `.env.example`, plus host-accessible PostgreSQL,
-Redis, SeaweedFS, Mailpit, Python, and FFmpeg. It is not needed for normal local
-development.
+If the doctor says port 8081 is occupied, an API may already be running in
+Docker. Stop only that service with `docker compose stop api`, or choose another
+native `PORT`. Do not run the Docker API and native API on the same port.
 
 ### A port is already in use
 
-The defaults are API `8081`, storage `9000`, Mailpit inbox `8025`, and Mailpit
-SMTP `1025`. Change the corresponding setting in `.env`:
+The defaults are API `8081`, PostgreSQL `5432`, Redis `6379`, storage `9000`,
+Mailpit inbox `8025`, and Mailpit SMTP `1025`. Change the corresponding setting
+in `.env`:
 
 ```dotenv
 LOCAL_API_PORT=8081
+LOCAL_POSTGRES_PORT=5432
+LOCAL_REDIS_PORT=6379
 LOCAL_STORAGE_PORT=9000
 LOCAL_MAILPIT_UI_PORT=8025
 LOCAL_MAILPIT_SMTP_PORT=1025
@@ -209,6 +244,8 @@ docker compose up -d --force-recreate
 ```
 
 When `LOCAL_API_PORT` changes, update the App's `NEXT_PUBLIC_API_URL`.
+When `LOCAL_POSTGRES_PORT` or `LOCAL_REDIS_PORT` changes, update the matching
+`DATABASE_URL` or `REDIS_URL` used by native development.
 When `LOCAL_STORAGE_PORT` changes, update the App's
 `NEXT_IMAGE_REMOTE_ORIGINS` to the exact origin, such as
 `http://127.0.0.1:9100`. The API automatically signs local media URLs with
@@ -314,10 +351,10 @@ selects `ssm-parameter-store` and deployments retrieve `SESSION_SECRET`,
 The completed migration procedure and current operating guidance are retained
 in the production secrets runbook.
 
-Running without Docker is possible with `npm run dev:host`, but it requires
-manually installing and configuring PostgreSQL, Redis, Python 3.12, FFmpeg,
-object storage, and a local email server, and keeping `.env` aligned with
-`.env.example`. Docker is the supported and recommended setup for local work.
+Native development uses `npm run dev`; Docker remains optional. Native mode
+requires compatible PostgreSQL, Redis, object storage, and SMTP services plus
+Python 3.12 and FFmpeg for audio features. Keep `.env` aligned with
+`.env.example` and use `npm run doctor` before troubleshooting application code.
 
 ## EC2 operations and troubleshooting
 

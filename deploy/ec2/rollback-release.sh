@@ -7,8 +7,8 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 backup_root=/var/backups/trackfusionweb-api
-app_directory=/opt/trackfusion/api
-config_directory=/etc/trackfusion
+app_directory=/opt/trackfusionweb/api
+config_directory=/etc/trackfusionweb
 service_name=trackfusionweb-api
 requested_backup=${1:-}
 script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -99,7 +99,7 @@ if systemctl is-active --quiet "${service_name}"; then
   echo "ERROR: the API service could not be stopped safely for rollback." >&2
   exit 1
 fi
-install -d -o trackfusion -g trackfusion -m 0750 "${app_directory}"
+install -d -o trackfusionweb -g trackfusionweb -m 0750 "${app_directory}"
 rsync -a --delete --exclude='uploads/' \
   "${backup_directory}/release/" "${app_directory}/"
 
@@ -124,7 +124,7 @@ restore_optional_path "${backup_directory}/host/nginx/trackfusionweb-api-https-e
 restore_path "${backup_directory}/host/nginx/sites-enabled/default" \
   /etc/nginx/sites-enabled/default
 
-chown -R trackfusion:trackfusion "${app_directory}"
+chown -R trackfusionweb:trackfusionweb "${app_directory}"
 chown -R root:root "${config_directory}"
 chmod 0700 "${config_directory}"
 for protected_file in \

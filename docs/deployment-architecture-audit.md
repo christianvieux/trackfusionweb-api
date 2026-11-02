@@ -39,7 +39,7 @@ production deployment.
 | Terraform | Declares the AWS provider guardrail, default-VPC lookup, EC2 instance and instance profile, security group rules, Elastic IP, private media bucket controls and CORS, GitHub OIDC provider and separated plan/apply/deploy roles, plan and parameter KMS keys, exact EC2 parameter-read permissions, SSM deployment document, and basic CloudWatch/SNS alarms. |
 | GitHub Actions | On every push and pull request, runs application tests, dependency audit, database/API checks, a Docker build, and Terraform format/validation. A manually dispatched workflow on `main` verifies the protected environments, creates a real plan through the read-only OIDC role, conditionally gates and applies a changed saved plan, then uses the deploy role to upload a checksummed source archive, invoke the allowlisted SSM document, wait for completion, and check public HTTPS endpoints. |
 | EC2 deployment scripts | Refuse to replace an unhealthy service, reconcile an allowlisted set of Git-managed nonsecret settings, validate the candidate before stopping the service, back up the release/configuration/database, install dependencies, initialize and verify the schema, configure systemd/Nginx, run health checks, and automatically restore the prior release after failure. |
-| Runtime configuration | systemd reads the protected generated `/etc/trackfusion/.env`. Deployments reconcile the seven keys in `deploy/ec2/production-managed.env`, preserve instance-specific nonsecrets, and retrieve the four secret keys from Parameter Store because `/etc/trackfusion/secret-source` selects `ssm-parameter-store`. The application has no alternate secret-store loader, and Parameter Store reconciliation rejects `AWS_SECRETS_ARN`. |
+| Runtime configuration | systemd reads the protected generated `/etc/trackfusionweb/.env`. Deployments reconcile the seven keys in `deploy/ec2/production-managed.env`, preserve instance-specific nonsecrets, and retrieve the four secret keys from Parameter Store because `/etc/trackfusionweb/secret-source` selects `ssm-parameter-store`. The application has no alternate secret-store loader, and Parameter Store reconciliation rejects `AWS_SECRETS_ARN`. |
 | Protected credentials | GitHub receives short-lived role credentials through OIDC. EC2 receives AWS credentials through its instance profile. Application signing secrets, the database credential, and the Resend key come from four KMS-encrypted SSM `SecureString` parameters and are projected into the root-owned runtime environment. Local-only credentials belong in ignored `.env`. |
 | Local Docker Compose | Runs the API, PostgreSQL, Redis, SeaweedFS S3 compatibility layer, storage initialization, and Mailpit. It binds host-facing development ports to loopback and uses local `.env` values only. |
 
@@ -230,7 +230,7 @@ and recovery guidance. Secret values must never be recorded there or here.
 ### Recovery and rollback
 
 - Current production keeps `ssm-parameter-store` as the explicit secret source;
-  `/etc/trackfusion/.env` is the generated runtime projection, not the secret
+  `/etc/trackfusionweb/.env` is the generated runtime projection, not the secret
   authority.
 - A failed candidate fetch or validation must happen before service stop and
   leave the current process and file untouched.

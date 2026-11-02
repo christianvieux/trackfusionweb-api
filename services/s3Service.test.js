@@ -10,8 +10,8 @@ const localEnvironment = {
   STORAGE_BUCKET: "trackfusionweb-local",
   STORAGE_ENDPOINT: "http://storage:8333",
   STORAGE_PUBLIC_ENDPOINT: "http://127.0.0.1:9000",
-  STORAGE_ACCESS_KEY_ID: "trackfusion-local",
-  STORAGE_SECRET_ACCESS_KEY: "trackfusion-local-secret",
+  STORAGE_ACCESS_KEY_ID: "trackfusionweb-local",
+  STORAGE_SECRET_ACCESS_KEY: "trackfusionweb-local-secret",
 };
 
 test("selects AWS S3 without static credentials or a custom endpoint", () => {
@@ -38,8 +38,8 @@ test("selects explicit local credentials and path-style addressing", () => {
     publicEndpoint: "http://127.0.0.1:9000",
     forcePathStyle: true,
     credentials: {
-      accessKeyId: "trackfusion-local",
-      secretAccessKey: "trackfusion-local-secret",
+      accessKeyId: "trackfusionweb-local",
+      secretAccessKey: "trackfusionweb-local-secret",
     },
   });
 });

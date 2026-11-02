@@ -199,14 +199,14 @@ export function validateEnvironment() {
 
   if (process.env.NODE_ENV === "production") {
     if (
-      databaseUrl.username !== "trackfusion" ||
+      databaseUrl.username !== "trackfusionweb" ||
       !databaseUrl.password ||
       !["127.0.0.1", "localhost"].includes(databaseUrl.hostname) ||
       (databaseUrl.port && databaseUrl.port !== "5432") ||
       databaseUrl.pathname !== "/trackfusionweb_db"
     ) {
       throw new Error(
-        "DATABASE_URL must identify the local trackfusion production database",
+        "DATABASE_URL must identify the local trackfusionweb production database",
       );
     }
     if (process.env.STORAGE_PROVIDER !== "aws-s3") {

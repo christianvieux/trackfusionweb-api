@@ -12,14 +12,14 @@ import {
 const example = `NODE_ENV=development
 SESSION_SECRET=replace_with_a_long_random_value
 JWT_SECRET=replace_with_a_different_long_random_value
-DATABASE_URL=postgresql://trackfusion:replace_me@localhost:5432/trackfusionweb_db
+DATABASE_URL=postgresql://trackfusionweb:replace_me@localhost:5432/trackfusionweb_db
 POSTGRES_PASSWORD=replace_with_a_local_database_password
 STORAGE_PROVIDER=s3-compatible
 EMAIL_PROVIDER=smtp
 `;
 
 async function temporaryProject() {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "trackfusion-setup-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "trackfusionweb-setup-"));
   await writeFile(path.join(directory, ".env.example"), example);
   return directory;
 }
@@ -31,6 +31,7 @@ test("creates a fresh environment with unprinted-quality generated credentials",
     created: true,
     missing: [],
     placeholders: [],
+    legacy: [],
   });
 
   const values = parseEnvironment(
@@ -84,6 +85,15 @@ test("does not expose environment values while describing issues", () => {
   const issues = findEnvironmentIssues(example, "NODE_ENV=development\n");
   expect(issues.missing).toContain("SESSION_SECRET");
   expect(JSON.stringify(issues)).not.toContain("replace_with_a_long_random_value");
+});
+
+test("reports legacy identities by setting name only", () => {
+  const issues = findEnvironmentIssues(
+    example,
+    example.replace("trackfusionweb", "trackfusion"),
+  );
+  expect(issues.legacy).toContain("DATABASE_URL");
+  expect(JSON.stringify(issues)).not.toContain("replace_me");
 });
 
 test("reads the npm version supplied to npm-run scripts without a subprocess", () => {

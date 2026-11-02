@@ -5,11 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=trackfusion
-Group=trackfusion
-WorkingDirectory=/opt/trackfusion/api
-EnvironmentFile=/etc/trackfusion/.env
-ExecStart=/usr/local/bin/node /opt/trackfusion/api/index.js
+User=trackfusionweb
+Group=trackfusionweb
+WorkingDirectory=/opt/trackfusionweb/api
+EnvironmentFile=/etc/trackfusionweb/.env
+ExecStart=/usr/local/bin/node /opt/trackfusionweb/api/index.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=35

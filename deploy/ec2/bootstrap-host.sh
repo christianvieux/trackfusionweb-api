@@ -48,12 +48,12 @@ ln -sfn "/opt/${node_directory}/bin/npm" /usr/local/bin/npm
 ln -sfn "/opt/${node_directory}/bin/npx" /usr/local/bin/npx
 ln -sfn "/opt/${node_directory}/bin/corepack" /usr/local/bin/corepack
 
-if ! id trackfusion >/dev/null 2>&1; then
-  useradd --system --home-dir /opt/trackfusion --create-home \
-    --shell /usr/sbin/nologin trackfusion
+if ! id trackfusionweb >/dev/null 2>&1; then
+  useradd --system --home-dir /opt/trackfusionweb --create-home \
+    --shell /usr/sbin/nologin trackfusionweb
 fi
 
-install -d -o trackfusion -g trackfusion -m 0750 /opt/trackfusion/api
+install -d -o trackfusionweb -g trackfusionweb -m 0750 /opt/trackfusionweb/api
 
 if [[ ! -f /swapfile ]]; then
   fallocate -l 2G /swapfile

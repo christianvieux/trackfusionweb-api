@@ -6,8 +6,8 @@ x-local-storage-environment: &local-storage-environment
   STORAGE_BUCKET: ${LOCAL_STORAGE_BUCKET:-trackfusionweb-local}
   STORAGE_ENDPOINT: http://storage:8333
   STORAGE_PUBLIC_ENDPOINT: http://127.0.0.1:${LOCAL_STORAGE_PORT:-9000}
-  STORAGE_ACCESS_KEY_ID: ${LOCAL_STORAGE_ACCESS_KEY_ID:-trackfusion-local}
-  STORAGE_SECRET_ACCESS_KEY: ${LOCAL_STORAGE_SECRET_ACCESS_KEY:-trackfusion-local-secret}
+  STORAGE_ACCESS_KEY_ID: ${LOCAL_STORAGE_ACCESS_KEY_ID:-trackfusionweb-local}
+  STORAGE_SECRET_ACCESS_KEY: ${LOCAL_STORAGE_SECRET_ACCESS_KEY:-trackfusionweb-local-secret}
   STORAGE_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
   AWS_REGION: ${LOCAL_STORAGE_REGION:-us-east-1}
   AWS_S3_BUCKET: ${LOCAL_STORAGE_BUCKET:-trackfusionweb-local}
@@ -17,18 +17,51 @@ services:
     image: postgres:16.15-alpine3.24
     environment:
       POSTGRES_DB: trackfusionweb_db
-      POSTGRES_USER: trackfusion
+      POSTGRES_USER: trackfusionweb
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${LOCAL_POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trackfusion -d trackfusionweb_db"]
+      test: ["CMD-SHELL", "pg_isready -d trackfusionweb_db"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
+
+  postgres-identity-migration:
+    image: postgres:16.15-alpine3.24
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if psql --host=postgres --username=trackfusionweb --dbname=trackfusionweb_db \
+          --command='SELECT 1' >/dev/null 2>&1; then
+          exit 0
+        fi
+        psql --host=postgres --username=trackfusion --dbname=trackfusionweb_db \
+          --set=ON_ERROR_STOP=1 <<'SQL'
+        \getenv database_password POSTGRES_PASSWORD
+        SELECT format('CREATE ROLE trackfusionweb_migrator WITH LOGIN SUPERUSER PASSWORD %L', :'database_password')
+        WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'trackfusionweb_migrator') \gexec
+        SQL
+        psql --host=postgres --username=trackfusionweb_migrator --dbname=trackfusionweb_db \
+          --set=ON_ERROR_STOP=1 <<'SQL'
+        \getenv database_password POSTGRES_PASSWORD
+        ALTER ROLE trackfusion RENAME TO trackfusionweb;
+        SELECT format('ALTER ROLE trackfusionweb WITH LOGIN SUPERUSER PASSWORD %L', :'database_password') \gexec
+        SQL
+        psql --host=postgres --username=trackfusionweb --dbname=trackfusionweb_db \
+          --set=ON_ERROR_STOP=1 \
+          --command='DROP ROLE trackfusionweb_migrator'
+    restart: "no"
 
   redis:
     image: redis:7.4.7-alpine
@@ -48,8 +81,8 @@ services:
     image: chrislusf/seaweedfs:4.51
     command: ["mini", "-dir=/data", "-ip=storage", "-ip.bind=0.0.0.0"]
     environment:
-      AWS_ACCESS_KEY_ID: ${LOCAL_STORAGE_ACCESS_KEY_ID:-trackfusion-local}
-      AWS_SECRET_ACCESS_KEY: ${LOCAL_STORAGE_SECRET_ACCESS_KEY:-trackfusion-local-secret}
+      AWS_ACCESS_KEY_ID: ${LOCAL_STORAGE_ACCESS_KEY_ID:-trackfusionweb-local}
+      AWS_SECRET_ACCESS_KEY: ${LOCAL_STORAGE_SECRET_ACCESS_KEY:-trackfusionweb-local-secret}
       S3_BUCKET: ${LOCAL_STORAGE_BUCKET:-trackfusionweb-local}
     volumes:
       - storage_data:/data
@@ -95,7 +128,7 @@ services:
       <<: *local-storage-environment
       HOST: 0.0.0.0
       PORT: 8081
-      DATABASE_URL: postgresql://trackfusion:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/trackfusionweb_db
+      DATABASE_URL: postgresql://trackfusionweb:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/trackfusionweb_db
       REDIS_URL: redis://redis:6379
       PYTHON_EXECUTABLE: /opt/venv/bin/python
       AWS_PROFILE: ""
@@ -112,6 +145,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-identity-migration:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       storage-init:

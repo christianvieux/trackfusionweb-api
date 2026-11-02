@@ -259,8 +259,13 @@ default setting, its address is
 
 ### Old local data is causing errors
 
-First try a normal restart. If you are certain that you do not need any local
-accounts, tracks, files, or emails, reset the local setup:
+Compose automatically migrates an existing PostgreSQL container from the old
+service role to `trackfusionweb`; it does not delete the database volume. If
+`npm run doctor` reports legacy settings, update only the named `.env` entries
+to match `.env.example` and keep their existing secret values.
+
+If you are certain that you do not need any local accounts, tracks, files, or
+emails, you can instead reset the local setup:
 
 ```bash
 docker compose down -v
@@ -351,6 +356,21 @@ selects `ssm-parameter-store` and deployments retrieve `SESSION_SECRET`,
 The completed migration procedure and current operating guidance are retained
 in the production secrets runbook.
 
+### TrackFusionWeb identity migration
+
+The first production deployment containing the canonical naming change handles
+the previous identity automatically. Before replacing anything, it creates the
+normal protected release/database backup. It then migrates the Linux service
+account, PostgreSQL role, `/opt` and `/etc` paths, systemd unit, runtime
+configuration, and allowlisted `DATABASE_URL` parameter. The migrated API must
+pass its health checks before the previous identities are retired. Any failure
+during the cutover restores the backed-up release, configuration, database
+ownership, Parameter Store value, and service identity.
+
+Do not rename those resources manually before that deployment. The deployment
+document deliberately recognizes the previous downloader path for this single
+transition; active runtime configuration uses only `trackfusionweb` afterward.
+
 Native development uses `npm run dev`; Docker remains optional. Native mode
 requires compatible PostgreSQL, Redis, object storage, and SMTP services plus
 Python 3.12 and FFmpeg for audio features. Keep `.env` aligned with
@@ -403,7 +423,7 @@ A healthy response is `{"status":"healthy"}`. Test both the direct API and the
 local Nginx HTTPS path with the project's health script:
 
 ```bash
-sudo bash /opt/trackfusion/api/deploy/ec2/check-api-health.sh 5
+sudo bash /opt/trackfusionweb/api/deploy/ec2/check-api-health.sh 5
 ```
 
 The health script prints nothing when both checks pass. A nonzero exit code or
@@ -448,7 +468,7 @@ down or the instance is out of resources:
 sudo systemctl status postgresql redis-server --no-pager
 sudo -u postgres pg_isready
 redis-cli ping
-df -h / /opt/trackfusion /var/log
+df -h / /opt/trackfusionweb /var/log
 free -h
 ```
 
@@ -457,12 +477,12 @@ return `PONG`.
 
 ### Validate production settings without printing secrets
 
-The production settings file is `/etc/trackfusion/.env`. It contains secrets:
+The production settings file is `/etc/trackfusionweb/.env`. It contains secrets:
 never print it with `cat`, load it with `source`, paste it into chat, or commit
 it to Git.
 
 Production now selects `ssm-parameter-store` in the root-owned
-`/etc/trackfusion/secret-source`. The protected `/etc/trackfusion/.env` is a
+`/etc/trackfusionweb/secret-source`. The protected `/etc/trackfusionweb/.env` is a
 generated runtime projection: do not edit its four secret values directly.
 Update production secrets through the authorized Parameter Store procedure in
 [`docs/production-secrets-runbook.md`](docs/production-secrets-runbook.md).
@@ -480,14 +500,14 @@ the key is missing.
 Validate the file without displaying its values:
 
 ```bash
-sudo /usr/local/bin/node --env-file=/etc/trackfusion/.env /opt/trackfusion/api/scripts/validateEnvironment.js --local-only
+sudo /usr/local/bin/node --env-file=/etc/trackfusionweb/.env /opt/trackfusionweb/api/scripts/validateEnvironment.js --local-only
 ```
 
 Do not edit this generated file directly. Correct the authoritative managed
 setting or Parameter Store value through its approved procedure, then use the
 protected GitHub Actions deployment. The workflow performs preflight validation,
 installation, service restart, and health checks in the required order. Do not
-deploy by editing files under `/opt/trackfusion/api`.
+deploy by editing files under `/opt/trackfusionweb/api`.
 
 ### Quick diagnosis guide
 
@@ -504,9 +524,9 @@ deploy by editing files under `/opt/trackfusion/api`.
 
 | Path | Purpose |
 | --- | --- |
-| `/opt/trackfusion/api` | Current deployed API release; do not edit it directly |
-| `/etc/trackfusion/.env` | Root-protected generated production runtime settings |
-| `/etc/trackfusion/secret-source` | Root-protected selector; production uses `ssm-parameter-store` |
+| `/opt/trackfusionweb/api` | Current deployed API release; do not edit it directly |
+| `/etc/trackfusionweb/.env` | Root-protected generated production runtime settings |
+| `/etc/trackfusionweb/secret-source` | Root-protected selector; production uses `ssm-parameter-store` |
 | `/etc/systemd/system/trackfusionweb-api.service` | API service definition |
 | `/etc/nginx/sites-enabled/trackfusionweb-api` | Enabled Nginx site configuration |
 | `/var/log/nginx/` | Nginx access and error logs |

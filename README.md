@@ -87,6 +87,16 @@ docker compose up -d --build
 This builds the API, starts all local services in the background, and prepares
 the database automatically. The first start can take a few minutes.
 
+For an attached development session with live API logs, use:
+
+```bash
+npm run dev
+```
+
+That command uses the same Docker Compose stack. Press `Ctrl+C` to stop the
+attached session. Do not run it at the same time as a separately started API on
+the same port.
+
 ### 5. View the API
 
 With the default settings, open
@@ -132,6 +142,7 @@ Run these commands from the API folder.
 
 | Command | What it does |
 | --- | --- |
+| `npm run dev` | Builds and runs the supported Docker development API in the foreground |
 | `docker compose up -d` | Starts the existing local setup in the background |
 | `docker compose up -d --build` | Rebuilds the API and starts it; use this after code or package changes |
 | `docker compose ps` | Shows which services are running and whether they are healthy |
@@ -166,6 +177,18 @@ docker compose up -d --build
 Make sure `.env` exists in the API folder and that `POSTGRES_PASSWORD` has a
 value. If the file is missing, repeat step 3 above. Do not overwrite an existing
 `.env` file unless you intend to replace your local settings.
+
+### Nodemon reports missing provider settings
+
+`npm run dev` uses Docker Compose and supplies the local storage and email
+provider settings automatically. If a terminal instead starts
+`nodemon index.js`, update the branch and confirm `package.json` contains the
+current development scripts.
+
+The advanced `npm run dev:host` command intentionally runs Node directly. It
+requires every setting from `.env.example`, plus host-accessible PostgreSQL,
+Redis, SeaweedFS, Mailpit, Python, and FFmpeg. It is not needed for normal local
+development.
 
 ### A port is already in use
 
@@ -291,9 +314,10 @@ selects `ssm-parameter-store` and deployments retrieve `SESSION_SECRET`,
 The completed migration procedure and current operating guidance are retained
 in the production secrets runbook.
 
-Running without Docker is possible, but it requires manually installing and
-configuring PostgreSQL, Redis, Python 3.12, FFmpeg, object storage, and a local
-email server. Docker is the supported and recommended setup for local work.
+Running without Docker is possible with `npm run dev:host`, but it requires
+manually installing and configuring PostgreSQL, Redis, Python 3.12, FFmpeg,
+object storage, and a local email server, and keeping `.env` aligned with
+`.env.example`. Docker is the supported and recommended setup for local work.
 
 ## EC2 operations and troubleshooting
 

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "docker compose up --build api",
+    "dev:host": "nodemon index.js",
     "db:init": "node scripts/initDatabase.js",
     "db:verify": "node scripts/verifyDatabase.js",
     "storage:init": "node scripts/initStorage.js",

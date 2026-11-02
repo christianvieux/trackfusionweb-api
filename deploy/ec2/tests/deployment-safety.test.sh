@@ -50,6 +50,7 @@ test_preflight_rejects_missing_email_secret() {
     "${staging_directory}/requirements.txt" \
     "${staging_directory}/deploy/ec2/backup-release.sh" \
     "${staging_directory}/deploy/ec2/configure-app.sh" \
+    "${staging_directory}/deploy/ec2/migrate-production-identity.sh" \
     "${staging_directory}/deploy/ec2/prune-release-backups.sh" \
     "${staging_directory}/deploy/ec2/rollback-release.sh" \
     "${staging_directory}/deploy/systemd/trackfusionweb-api.service"
@@ -79,9 +80,9 @@ FRONTEND_URL=https://trackfusionweb.com
 CORS_ALLOWED_ORIGINS=https://trackfusionweb.com
 SESSION_SECRET=preserve-session-secret-00000000000000000000
 JWT_SECRET=preserve-jwt-secret-00000000000000000000000
-DATABASE_URL=postgresql://trackfusion:preserve-password@127.0.0.1:5432/trackfusionweb_db
+DATABASE_URL=postgresql://trackfusionweb:preserve-password@127.0.0.1:5432/trackfusionweb_db
 REDIS_URL=redis://127.0.0.1:6379
-PYTHON_EXECUTABLE=/opt/trackfusion/api/venv/bin/python
+PYTHON_EXECUTABLE=/opt/trackfusionweb/api/venv/bin/python
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=trackfusionweb-test-bucket
 AUDIO_MAX_LENGTH=900
@@ -108,7 +109,7 @@ EOF
 
   sed \
     -e 's/if \[\[ ${EUID} -ne 0 \]\]; then/if false; then/' \
-    -e "s|config_directory=/etc/trackfusion|config_directory=${config_directory}|" \
+    -e "s|config_directory=/etc/trackfusionweb|config_directory=${config_directory}|" \
     -e "s|/usr/local/bin/node|${node_executable}|" \
     "${repository_root}/deploy/ec2/deploy-release.sh" \
     > "${staging_directory}/deploy/ec2/deploy-release.sh"
@@ -136,7 +137,7 @@ test_rollback_restores_release_and_configuration() {
   local fixture_root="${test_directory}/rollback"
   local backup_root="${fixture_root}/backups"
   local app_directory="${fixture_root}/app"
-  local config_directory="${fixture_root}/etc/trackfusion"
+  local config_directory="${fixture_root}/etc/trackfusionweb"
   local command_directory="${fixture_root}/bin"
   local script_directory="${fixture_root}/scripts"
   local backup_directory="${backup_root}/20261026T120000Z-${release_id}"
@@ -204,12 +205,12 @@ EOF
   sed \
     -e 's/if \[\[ ${EUID} -ne 0 \]\]; then/if false; then/' \
     -e "s|backup_root=/var/backups/trackfusionweb-api|backup_root=${backup_root}|" \
-    -e "s|app_directory=/opt/trackfusion/api|app_directory=${app_directory}|" \
-    -e "s|config_directory=/etc/trackfusion|config_directory=${config_directory}|" \
+    -e "s|app_directory=/opt/trackfusionweb/api|app_directory=${app_directory}|" \
+    -e "s|config_directory=/etc/trackfusionweb|config_directory=${config_directory}|" \
     -e "s|/etc/systemd|${fixture_root}/etc/systemd|g" \
     -e "s|/etc/nginx|${fixture_root}/etc/nginx|g" \
     -e 's/install -o root -g root -m 0755/install -m 0755/' \
-    -e 's/install -d -o trackfusion -g trackfusion -m 0750/install -d -m 0750/' \
+    -e 's/install -d -o trackfusionweb -g trackfusionweb -m 0750/install -d -m 0750/' \
     -e 's/install -d -o root -g root -m 0700/install -d -m 0700/' \
     -e 's/install -d -o root -g root -m 0755/install -d -m 0755/' \
     "${repository_root}/deploy/ec2/rollback-release.sh" \

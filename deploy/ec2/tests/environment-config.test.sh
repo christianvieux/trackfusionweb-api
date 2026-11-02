@@ -20,7 +20,7 @@ FRONTEND_URL=https://trackfusionweb.com
 CORS_ALLOWED_ORIGINS=https://trackfusionweb.com
 SESSION_SECRET=preserve-this-session-secret-exactly
 JWT_SECRET=preserve-this-jwt-secret-exactly
-DATABASE_URL=postgresql://trackfusion:preserve-this-password@127.0.0.1:5432/trackfusionweb_db
+DATABASE_URL=postgresql://trackfusionweb:preserve-this-password@127.0.0.1:5432/trackfusionweb_db
 COOKIE_SECURE=true
 COOKIE_SAME_SITE=none
 EMAIL_DELIVERY_ENABLED=false
@@ -41,7 +41,7 @@ grep -Fqx 'EMAIL_PROVIDER=resend' "${candidate_file}"
 grep -Fqx 'EMAIL_DELIVERY_ENABLED=true' "${candidate_file}"
 grep -Fqx 'SESSION_SECRET=preserve-this-session-secret-exactly' "${candidate_file}"
 grep -Fqx 'JWT_SECRET=preserve-this-jwt-secret-exactly' "${candidate_file}"
-grep -Fqx 'DATABASE_URL=postgresql://trackfusion:preserve-this-password@127.0.0.1:5432/trackfusionweb_db' "${candidate_file}"
+grep -Fqx 'DATABASE_URL=postgresql://trackfusionweb:preserve-this-password@127.0.0.1:5432/trackfusionweb_db' "${candidate_file}"
 grep -Fqx 'UNRECOGNIZED_SETTING=must-survive' "${candidate_file}"
 if grep -Eq 'https://(trackfusionweb\.vercel\.app|trackfusionweb\.com)$' "${candidate_file}"; then
   echo "Obsolete frontend origin remains in the reconciled environment." >&2

@@ -6,8 +6,8 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-app_directory=/opt/trackfusion/api
-config_directory=/etc/trackfusion
+app_directory=/opt/trackfusionweb/api
+config_directory=/etc/trackfusionweb
 secrets_file="${config_directory}/secrets.env"
 environment_file="${config_directory}/.env"
 current_stage=preflight
@@ -29,8 +29,8 @@ for command_name in \
   fi
 done
 
-if ! id trackfusion >/dev/null 2>&1; then
-  echo "ERROR: the trackfusion service account is missing; run bootstrap-host.sh first." >&2
+if ! id trackfusionweb >/dev/null 2>&1; then
+  echo "ERROR: the trackfusionweb service account is missing; run bootstrap-host.sh first." >&2
   exit 1
 fi
 for required_file in \
@@ -61,7 +61,7 @@ fi
 
 current_stage=environment-permissions
 install -d -o root -g root -m 0700 "${config_directory}"
-install -d -o trackfusion -g trackfusion -m 0750 "${app_directory}/uploads/temp"
+install -d -o trackfusionweb -g trackfusionweb -m 0750 "${app_directory}/uploads/temp"
 
 if [[ ! -f ${environment_file} || -L ${environment_file} ]]; then
   echo "ERROR: the reconciled production environment must be a regular file: ${environment_file}" >&2
@@ -92,12 +92,12 @@ database_password=$(
       const url = new URL(value);
       const localHosts = new Set(["127.0.0.1", "localhost"]);
       if (!["postgres:", "postgresql:"].includes(url.protocol) ||
-          url.username !== "trackfusion" ||
+          url.username !== "trackfusionweb" ||
           !url.password ||
           !localHosts.has(url.hostname) ||
           (url.port && url.port !== "5432") ||
           url.pathname !== "/trackfusionweb_db") {
-        throw new Error("DATABASE_URL must identify the local trackfusion production database");
+        throw new Error("DATABASE_URL must identify the local trackfusionweb production database");
       }
       process.stdout.write(decodeURIComponent(url.password));
     '
@@ -105,14 +105,14 @@ database_password=$(
 
 current_stage=database-access
 role_exists=$(runuser -u postgres -- psql --dbname=postgres --tuples-only --no-align \
-  --command="SELECT 1 FROM pg_roles WHERE rolname = 'trackfusion'")
+  --command="SELECT 1 FROM pg_roles WHERE rolname = 'trackfusionweb'")
 if [[ ${role_exists} != 1 ]]; then
   # Pass the password through the child environment instead of SQL arguments or logs.
   export DATABASE_PASSWORD=${database_password}
   runuser --preserve-environment -u postgres -- psql --dbname=postgres \
     --set=ON_ERROR_STOP=1 <<'SQL'
 \getenv db_password DATABASE_PASSWORD
-SELECT format('CREATE ROLE trackfusion WITH LOGIN PASSWORD %L', :'db_password') \gexec
+SELECT format('CREATE ROLE trackfusionweb WITH LOGIN PASSWORD %L', :'db_password') \gexec
 SQL
   export -n DATABASE_PASSWORD
 fi
@@ -120,15 +120,15 @@ fi
 database_exists=$(runuser -u postgres -- psql --dbname=postgres --tuples-only --no-align \
   --command="SELECT 1 FROM pg_database WHERE datname = 'trackfusionweb_db'")
 if [[ ${database_exists} != 1 ]]; then
-  runuser -u postgres -- createdb --owner=trackfusion trackfusionweb_db
+  runuser -u postgres -- createdb --owner=trackfusionweb trackfusionweb_db
 fi
 
 export PGPASSWORD=${database_password}
-if ! runuser --preserve-environment -u trackfusion -- psql \
-  --host=127.0.0.1 --username=trackfusion --dbname=trackfusionweb_db \
+if ! runuser --preserve-environment -u trackfusionweb -- psql \
+  --host=127.0.0.1 --username=trackfusionweb --dbname=trackfusionweb_db \
   --tuples-only --no-align --command='SELECT 1' | grep -qx 1; then
   unset PGPASSWORD
-  echo "ERROR: the preserved database credential cannot connect as the trackfusion role." >&2
+  echo "ERROR: the preserved database credential cannot connect as the trackfusionweb role." >&2
   exit 1
 fi
 unset PGPASSWORD
@@ -138,19 +138,19 @@ current_stage=dependency-installation
 if systemctl cat trackfusionweb-api >/dev/null 2>&1; then
   systemctl stop trackfusionweb-api
 fi
-chown -R trackfusion:trackfusion "${app_directory}"
-runuser -u trackfusion -- /usr/bin/python3 -m venv --clear "${app_directory}/venv"
-runuser -u trackfusion -- "${app_directory}/venv/bin/pip" install \
+chown -R trackfusionweb:trackfusionweb "${app_directory}"
+runuser -u trackfusionweb -- /usr/bin/python3 -m venv --clear "${app_directory}/venv"
+runuser -u trackfusionweb -- "${app_directory}/venv/bin/pip" install \
   --disable-pip-version-check --no-cache-dir -r "${app_directory}/requirements.txt"
-runuser -u trackfusion -- /usr/local/bin/npm ci --omit=dev \
+runuser -u trackfusionweb -- /usr/local/bin/npm ci --omit=dev \
   --prefix "${app_directory}" --no-audit --no-fund
 
 run_with_production_environment() {
-  local unit_name="trackfusion-configure-$$-${RANDOM}"
+  local unit_name="trackfusionweb-configure-$$-${RANDOM}"
   systemd-run --quiet --wait --pipe --collect \
     --unit="${unit_name}" \
-    --uid=trackfusion \
-    --gid=trackfusion \
+    --uid=trackfusionweb \
+    --gid=trackfusionweb \
     --working-directory="${app_directory}" \
     --property="EnvironmentFile=${environment_file}" \
     "$@"

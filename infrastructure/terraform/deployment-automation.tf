@@ -229,7 +229,7 @@ data "aws_iam_policy_document" "terraform_refresh" {
   }
 
   statement {
-    sid    = "ReadTrackFusionRoles"
+    sid    = "ReadTrackFusionWebRoles"
     effect = "Allow"
     actions = [
       "iam:GetRole",
@@ -241,7 +241,7 @@ data "aws_iam_policy_document" "terraform_refresh" {
   }
 
   statement {
-    sid    = "ReadTrackFusionPolicies"
+    sid    = "ReadTrackFusionWebPolicies"
     effect = "Allow"
     actions = [
       "iam:GetPolicy",
@@ -253,7 +253,7 @@ data "aws_iam_policy_document" "terraform_refresh" {
   }
 
   statement {
-    sid    = "ReadTrackFusionInstanceProfile"
+    sid    = "ReadTrackFusionWebInstanceProfile"
     effect = "Allow"
     actions = [
       "iam:GetInstanceProfile",

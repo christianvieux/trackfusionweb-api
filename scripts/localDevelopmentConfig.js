@@ -55,8 +55,11 @@ export function findEnvironmentIssues(exampleText, environmentText) {
       return /replace_|use_a_|change_me/i.test(value);
     })
     .map(([name]) => name);
+  const legacy = Object.entries(current)
+    .filter(([, value]) => /trackfusion(?!web)/i.test(value))
+    .map(([name]) => name);
 
-  return { missing, placeholders };
+  return { missing, placeholders, legacy };
 }
 
 function replaceSetting(text, name, value) {
@@ -78,7 +81,7 @@ export function createDevelopmentEnvironment(exampleText) {
   result = replaceSetting(
     result,
     "DATABASE_URL",
-    `postgresql://trackfusion:${databasePassword}@localhost:5432/trackfusionweb_db`,
+    `postgresql://trackfusionweb:${databasePassword}@localhost:5432/trackfusionweb_db`,
   );
   return result;
 }
@@ -105,16 +108,19 @@ export async function prepareEnvironment(rootDirectory) {
     mode: 0o600,
   });
 
-  return { created: true, missing: [], placeholders: [] };
+    return { created: true, missing: [], placeholders: [], legacy: [] };
 }
 
-export function formatEnvironmentIssues({ missing, placeholders }) {
+export function formatEnvironmentIssues({ missing, placeholders, legacy = [] }) {
   const messages = [];
   if (missing.length > 0) {
     messages.push(`missing settings: ${missing.join(", ")}`);
   }
   if (placeholders.length > 0) {
     messages.push(`placeholder settings: ${placeholders.join(", ")}`);
+  }
+  if (legacy.length > 0) {
+    messages.push(`legacy identity settings: ${legacy.join(", ")}`);
   }
   return messages;
 }

@@ -3,7 +3,7 @@
 Status: migration and activation completed on 2026-10-30.
 
 Production now uses Parameter Store as the secret authority. The root-owned
-mode-`0600` `/etc/trackfusion/secret-source` contains
+mode-`0600` `/etc/trackfusionweb/secret-source` contains
 `ssm-parameter-store`. The code retains `legacy-environment` behavior when the
 selector is absent or explicitly changed for controlled recovery, but current
 production does not use that path. There is no automatic fallback after
@@ -25,7 +25,7 @@ Production has exactly three configuration owners:
   nonsecrets; and
 - local development continues to use ignored `.env` files and Compose.
 
-The generated `/etc/trackfusion/.env` is the runtime projection of those
+The generated `/etc/trackfusionweb/.env` is the runtime projection of those
 sources. It is root-owned and mode `0600`; it is not an authoring source.
 
 Sections 1-6 record the completed migration and remain useful for audited host
@@ -49,9 +49,15 @@ Completed 2026-10-30: the AWS bootstrap established:
 
 - the production-parameter customer-managed KMS key;
 - exact `ssm:GetParameters` access for the EC2 role;
+- scoped `ssm:PutParameter` and KMS encryption access for only `DATABASE_URL`,
+  used by the guarded TrackFusionWeb identity migration;
 - decrypt access through SSM for the four exact `PARAMETER_ARN` contexts; and
 - the explicit deny that prevents the EC2 role from decrypting a Parameter
   Store value with any other KMS key.
+
+The identity migration updates that one parameter only after the renamed API
+passes its health checks. Its recovery trap restores the prior parameter when
+the cutover fails.
 
 Do not use the ordinary apply role for IAM/KMS bootstrap and do not reuse a
 saved plan from an earlier commit. Record the nonsensitive Terraform output
@@ -131,7 +137,7 @@ unset parameter_input_directory
 
 The values must be nonempty single-line values without an apostrophe;
 `SESSION_SECRET` and `JWT_SECRET` must be at least 32 characters. `DATABASE_URL`
-must retain the existing local `trackfusion` database identity. Initial
+must retain the existing local `trackfusionweb` database identity. Initial
 migration copies the already-authorized production credentials; it does not
 rotate them or use placeholders. Obtain them only through the approved secret
 handoff, never by pasting them into chat, tickets, shell commands, or logs.
@@ -194,7 +200,7 @@ selected Parameter Store without changing the running service:
 
 ```bash
 printf '%s\n' 'ssm-parameter-store' | \
-  sudo install -o root -g root -m 0600 /dev/stdin /etc/trackfusion/secret-source
+  sudo install -o root -g root -m 0600 /dev/stdin /etc/trackfusionweb/secret-source
 ```
 
 The protected workflow was dispatched from the approved `main` commit. Current
@@ -220,9 +226,9 @@ Workflow #83, its SSM deployment command, and its public HTTPS check passed on
 deployments, require those checks to pass. On the host, inspect metadata only:
 
 ```bash
-sudo stat -c '%U:%G %a %n' /etc/trackfusion/.env /etc/trackfusion/secret-source
+sudo stat -c '%U:%G %a %n' /etc/trackfusionweb/.env /etc/trackfusionweb/secret-source
 sudo grep -Ec '^(SESSION_SECRET|JWT_SECRET|DATABASE_URL|RESEND_API_KEY)=' \
-  /etc/trackfusion/.env
+  /etc/trackfusionweb/.env
 ```
 
 Expected ownership/mode is `root:root 600`, and the key count is `4`. Do not
@@ -237,7 +243,7 @@ canceling the selection would have been explicit:
 
 ```bash
 printf '%s\n' 'legacy-environment' | \
-  sudo install -o root -g root -m 0600 /dev/stdin /etc/trackfusion/secret-source
+  sudo install -o root -g root -m 0600 /dev/stdin /etc/trackfusionweb/secret-source
 ```
 
 Do not execute this selector change on current production. Returning current

@@ -294,6 +294,11 @@ data only and do not require an AWS or email-provider account.
 Requests and responses use JSON unless an endpoint returns a file. Routes that
 change private user data require a signed-in session.
 
+Browser authentication is backed by the server-side session cookie. Protected
+middleware also accepts the JWT cookie used by non-session clients, but a valid
+browser session is sufficient on its own. This keeps `/auth/session` and
+protected upload routes from disagreeing when one redundant cookie is missing.
+
 | Area | Example routes |
 | --- | --- |
 | Health | `GET /health` |

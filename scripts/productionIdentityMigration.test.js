@@ -76,30 +76,36 @@ test("Compose migrates an existing database volume before starting the API", () 
 });
 
 function legacyDatabaseUrlEvaluator() {
-  const script = migration.split("--eval '")[1]?.split("\n' \"${legacy_config_directory}/.env\"")[0];
+  const script = migration
+    .split("--eval '")[1]
+    ?.split("\n' \"${old_database_url_file}\"")[0];
   expect(script).toContain("const databaseUrl");
+  expect(migration).toContain('--env-file="${legacy_config_directory}/.env"');
   return script;
 }
 
+const validLegacyDatabaseUrl =
+  "postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db";
+
 test.each([
-  ["unquoted", "postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db"],
-  ["quoted", "\"postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db\""],
-])("legacy database URL parser accepts %s .env values", (_label, value) => {
+  ["unquoted", `DATABASE_URL=${validLegacyDatabaseUrl}`],
+  ["double-quoted", `DATABASE_URL=\"${validLegacyDatabaseUrl}\"`],
+  ["single-quoted", `DATABASE_URL='${validLegacyDatabaseUrl}'`],
+  ["exported", `export DATABASE_URL=${validLegacyDatabaseUrl}`],
+])("legacy database URL parser accepts %s .env values", (_label, line) => {
   const script = legacyDatabaseUrlEvaluator();
   const directory = mkdtempSync(join(tmpdir(), "trackfusionweb-db-url-"));
   try {
     const input = join(directory, ".env");
     const output = join(directory, "database-url");
-    writeFileSync(input, "DATABASE_URL=" + value + "\n");
+    writeFileSync(input, line + "\n");
     const result = spawnSync(
       process.execPath,
-      ["--input-type=module", "--eval", script, input, output],
-      { encoding: "utf8" },
+      [`--env-file=${input}`, "--input-type=module", "--eval", script, output],
+      { encoding: "utf8", env: {} },
     );
     expect(result.status).toBe(0);
-    expect(readFileSync(output, "utf8")).toBe(
-      "postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db\n",
-    );
+    expect(readFileSync(output, "utf8")).toBe(`${validLegacyDatabaseUrl}\n`);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -114,8 +120,8 @@ test("legacy database URL parser does not leak malformed credentials", () => {
     writeFileSync(input, 'DATABASE_URL="not-a-url-private-value"\n');
     const result = spawnSync(
       process.execPath,
-      ["--input-type=module", "--eval", script, input, output],
-      { encoding: "utf8" },
+      [`--env-file=${input}`, "--input-type=module", "--eval", script, output],
+      { encoding: "utf8", env: {} },
     );
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("the legacy DATABASE_URL is invalid");

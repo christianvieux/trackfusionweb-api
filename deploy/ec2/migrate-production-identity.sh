@@ -164,17 +164,16 @@ SQL
 trap cleanup EXIT
 trap restore_legacy_identity ERR INT HUP TERM
 
-/usr/local/bin/node --input-type=module --eval '
-  import { readFileSync, writeFileSync } from "node:fs";
-  const [environmentPath, oldUrlPath] = process.argv.slice(1);
-  const line = readFileSync(environmentPath, "utf8")
-    .split(/\r?\n/)
-    .find((entry) => entry.startsWith("DATABASE_URL="));
-  if (!line) throw new Error("DATABASE_URL is missing");
-  const value = line.slice("DATABASE_URL=".length).trim();
-  const databaseUrl = value.startsWith("\"") && value.endsWith("\"")
-    ? value.slice(1, -1)
-    : value;
+# Match configure-app.sh and Node's dotenv semantics. Hand-parsing this file can
+# reject valid quoted or exported values and must not be used for credentials.
+/usr/bin/env -i /usr/local/bin/node \
+  --env-file="${legacy_config_directory}/.env" \
+  --input-type=module \
+  --eval '
+  import { writeFileSync } from "node:fs";
+  const [oldUrlPath] = process.argv.slice(1);
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL is missing");
   let url;
   try {
     url = new URL(databaseUrl);
@@ -185,7 +184,7 @@ trap restore_legacy_identity ERR INT HUP TERM
     throw new Error("the legacy database identity is not present");
   }
   writeFileSync(oldUrlPath, `${url.toString()}\n`, { mode: 0o600 });
-' "${legacy_config_directory}/.env" "${old_database_url_file}"
+' "${old_database_url_file}"
 
 echo "Creating a protected pre-migration backup." >&2
 backup_directory=$(bash \

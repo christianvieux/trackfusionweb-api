@@ -1,20 +1,11 @@
 import express from "express";
-import Joi from "joi";
 import path from "path";
 import { audioAnalysisQueue, audioQueue } from '../queue/audioQueue.js';
 import { authenticateToken } from "../middlewares/authMiddleware.js";
+import { analyzeAudioSchema } from "../utils/audioAnalysisRequest.js";
 
 const router = express.Router();
 router.use(authenticateToken);
-
-const analyzeAudioSchema = Joi.object({
-  trackUrl: Joi.object({
-    key: Joi.string().required(),
-    uploadUrl: Joi.string().uri().optional(),
-    publicUrl: Joi.string().uri().optional(),
-  }).required(),
-  bpmRange: Joi.string().valid("50-100", "75-150", "100-200").default("50-100"),
-});
 
 function userOwnsJob(job, userId) {
   return job && String(job.data.userId) === String(userId);

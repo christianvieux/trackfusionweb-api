@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { validateEnvironment } from "../utils/loadEnv.js";
+import { S3Service } from "../services/s3Service.js";
 import {
   MINIMUM_NODE_MAJOR,
   MINIMUM_NPM_MAJOR,
@@ -79,11 +80,17 @@ async function checkStorage(environment) {
     const endpoint = new URL(environment.STORAGE_ENDPOINT);
     const port = Number(endpoint.port || (endpoint.protocol === "https:" ? 443 : 80));
     const reachable = await probeTcp(endpoint.hostname, port);
+    if (!reachable) {
+      report("failure", `Object storage is unavailable at ${endpoint.hostname}:${port}`);
+      return;
+    }
+
+    const acceptsConfiguredIdentity = await new S3Service(environment).testConnection();
     report(
-      reachable ? "ok" : "failure",
-      reachable
-        ? `Object storage is reachable at ${endpoint.hostname}:${port}`
-        : `Object storage is unavailable at ${endpoint.hostname}:${port}`,
+      acceptsConfiguredIdentity ? "ok" : "failure",
+      acceptsConfiguredIdentity
+        ? `Object storage is reachable and accepts the configured local identity at ${endpoint.hostname}:${port}`
+        : "Object storage rejected the configured local identity; recreate storage with `docker compose up -d --force-recreate storage storage-init`",
     );
   } catch {
     report("failure", "Object storage endpoint is invalid");

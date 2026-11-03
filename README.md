@@ -274,6 +274,19 @@ docker compose up -d --build
 
 The first command permanently deletes all local project data.
 
+If local presigned uploads return `403 Forbidden` after changing a storage
+access-key name, run `npm run doctor`. When the doctor reports that storage
+rejects the configured local identity, recreate only the storage services:
+
+```bash
+docker compose up -d --force-recreate storage storage-init
+docker compose wait storage-init
+npm run storage:verify
+```
+
+This refreshes the SeaweedFS identity and bucket configuration without deleting
+the persistent storage volume.
+
 ## How the local setup fits together
 
 ```text

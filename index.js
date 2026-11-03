@@ -68,7 +68,7 @@ async function startServer() {
     ...sessionConfig,
     store: new RedisStore({
       client: redisClient,
-      prefix: "trackfusion:session:",
+      prefix: "trackfusionweb:session:",
     }),
   }));
   app.use(express.json({ limit: requestBodyLimit }));

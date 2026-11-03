@@ -20,8 +20,18 @@ if [[ ${staging_directory} != "${expected_staging}" ]]; then
   exit 1
 fi
 
-app_directory=/opt/trackfusion/api
-config_directory=/etc/trackfusion
+legacy_app_directory=/opt/trackfusion/api
+if [[ -d ${legacy_app_directory} && ! -e /opt/trackfusionweb ]]; then
+  migration_script="${staging_directory}/deploy/ec2/migrate-production-identity.sh"
+  if [[ ! -f ${migration_script} ]]; then
+    echo "ERROR: the release cannot migrate the legacy production identity." >&2
+    exit 1
+  fi
+  exec bash "${migration_script}" "${staging_directory}" "${release_id}"
+fi
+
+app_directory=/opt/trackfusionweb/api
+config_directory=/etc/trackfusionweb
 environment_file="${config_directory}/.env"
 legacy_environment_file="${config_directory}/api.env"
 service_name=trackfusionweb-api
@@ -46,6 +56,7 @@ for required_path in \
   "${staging_directory}/deploy/ec2/backup-release.sh" \
   "${staging_directory}/deploy/ec2/check-api-health.sh" \
   "${staging_directory}/deploy/ec2/configure-app.sh" \
+  "${staging_directory}/deploy/ec2/migrate-production-identity.sh" \
   "${staging_directory}/deploy/ec2/production-managed.env" \
   "${staging_directory}/deploy/ec2/reconcile-environment-file.sh" \
   "${staging_directory}/deploy/ec2/reconcile-production-environment.sh" \
@@ -121,7 +132,7 @@ else
   exit 1
 fi
 
-candidate_directory=$(mktemp -d /tmp/trackfusion-config.XXXXXX)
+candidate_directory=$(mktemp -d /tmp/trackfusionweb-config.XXXXXX)
 chmod 0700 "${candidate_directory}"
 candidate_environment="${candidate_directory}/.env"
 source_environment_snapshot="${candidate_directory}/source.env"
@@ -188,7 +199,7 @@ echo "Release ${release_id} passed all health checks." >&2
 installed_service=/etc/systemd/system/trackfusionweb-api.service
 if [[ -f ${legacy_environment_file} ]]; then
   if [[ ! -f ${environment_file} ]] || \
-     ! grep -Fqx 'EnvironmentFile=/etc/trackfusion/.env' "${installed_service}" || \
+     ! grep -Fqx 'EnvironmentFile=/etc/trackfusionweb/.env' "${installed_service}" || \
      [[ ! -f ${backup_directory}/config/api.env ]]; then
     echo "ERROR: refusing to finalize the environment migration without a verified canonical file and legacy backup." >&2
     exit 1

@@ -2,6 +2,7 @@
 import { queryToDatabase } from '../services/dbService.js';
 import { normalizeEmail } from '../utils/emailUtils.js';
 import { authorizeMediaReference, authorizeTrackArtworkList } from '../services/mediaUrlService.js';
+import { saveAvatarForUser, validateAvatarConfig } from '../services/avatarService.js';
 
 export async function updateUserOnDatabase(userId, properties) {
   const query = `UPDATE users SET ${Object.keys(properties).map((key, index) => `${key} = $${index + 2}`).join(', ')} WHERE id = $1 RETURNING *`;
@@ -44,7 +45,24 @@ export async function getUserById(userId) {
 }
 
 export async function getPublicUserInfoFromId(userId) {
-  const query = `SELECT id, username, profile_picture_url, updated_at, created_at FROM users WHERE id = $1`;
+  const query = `
+    SELECT users.id,
+           users.username,
+           users.profile_picture_url,
+           users.updated_at,
+           users.created_at,
+           CASE
+             WHEN user_avatars.user_id IS NULL THEN NULL
+             ELSE json_build_object(
+               'shape', user_avatars.shape,
+               'expression', user_avatars.expression,
+               'color', user_avatars.color,
+               'seed', user_avatars.seed
+             )
+           END AS avatar
+      FROM users
+      LEFT JOIN user_avatars ON user_avatars.user_id = users.id
+     WHERE users.id = $1`;
   const values = [userId];
 
   try {
@@ -56,6 +74,25 @@ export async function getPublicUserInfoFromId(userId) {
     return user;
   } catch (error) {
     throw error;
+  }
+}
+
+export async function updateCurrentUserAvatar(req, res) {
+  if (!req.user?.id) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  const validation = validateAvatarConfig(req.body);
+  if (validation.error) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  try {
+    const avatar = await saveAvatarForUser(req.user.id, validation.value);
+    return res.status(200).json({ avatar });
+  } catch (error) {
+    console.error("Error saving avatar:", error);
+    return res.status(500).json({ error: "Unable to save avatar" });
   }
 }
 

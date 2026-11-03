@@ -8,8 +8,8 @@ fi
 
 certificate_email=${1:-}
 domain=api.trackfusionweb.com
-app_directory=/opt/trackfusion/api
-config_directory=/etc/trackfusion
+app_directory=/opt/trackfusionweb/api
+config_directory=/etc/trackfusionweb
 https_marker=/etc/nginx/trackfusionweb-api-https-enabled
 certificate_directory=/etc/letsencrypt/live/${domain}
 current_stage=preflight

@@ -3,11 +3,13 @@ import express from "express";
 import {
   getPublicUserInfoFromId,
   isEmailRegistered,
+  updateCurrentUserAvatar,
 } from "../controllers/userController.js";
 import { register } from "../controllers/registrationController.js";
 import { otpLimiter } from "../middlewares/limiterConfig.js";
 import { formatValidationError } from '../utils/validationsUtils.js';
 import Joi from 'joi';
+import { authenticateToken } from "../middlewares/authMiddleware.js";
 
 
 // Define the schema for validation
@@ -78,6 +80,8 @@ const emailSchema = Joi.object({
 });
 
 const router = express.Router();
+
+router.put("/avatar", authenticateToken, updateCurrentUserAvatar);
 
 router.post("/register",
   otpLimiter,

@@ -6,7 +6,7 @@ umask 077
 source_file=${1:-}
 managed_file=${2:-}
 destination_file=${3:-}
-selector_file=${4:-/etc/trackfusion/secret-source}
+selector_file=${4:-/etc/trackfusionweb/secret-source}
 
 if [[ -z ${source_file} || -z ${managed_file} || -z ${destination_file} ]]; then
   echo "ERROR: usage: reconcile-production-environment.sh <source-environment> <managed-settings> <destination-environment> [secret-source-selector]" >&2

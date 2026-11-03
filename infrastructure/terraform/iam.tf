@@ -12,7 +12,7 @@ data "aws_iam_policy_document" "ec2_trust" {
 
 data "aws_iam_policy_document" "api" {
   statement {
-    sid    = "TrackFusionAudioObjectAccess"
+    sid    = "TrackFusionWebAudioObjectAccess"
     effect = "Allow"
     actions = [
       "s3:GetObject",
@@ -27,6 +27,32 @@ data "aws_iam_policy_document" "api" {
     effect    = "Allow"
     actions   = ["ssm:GetParameters"]
     resources = local.production_secret_parameter_arns
+  }
+
+  statement {
+    sid       = "MigrateDatabaseIdentityParameter"
+    effect    = "Allow"
+    actions   = ["ssm:PutParameter"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/trackfusionweb/production/api/DATABASE_URL"]
+  }
+
+  statement {
+    sid       = "EncryptMigratedDatabaseIdentityParameter"
+    effect    = "Allow"
+    actions   = ["kms:Encrypt"]
+    resources = [aws_kms_key.production_parameters.arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.${var.aws_region}.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:EncryptionContext:PARAMETER_ARN"
+      values   = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/trackfusionweb/production/api/DATABASE_URL"]
+    }
   }
 
   statement {

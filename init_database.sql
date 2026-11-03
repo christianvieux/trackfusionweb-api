@@ -52,6 +52,35 @@ CREATE TABLE IF NOT EXISTS public.users (
   CONSTRAINT users_username_key UNIQUE (username)
 );
 
+CREATE TABLE IF NOT EXISTS public.user_avatars (
+  user_id integer NOT NULL,
+  shape varchar(24) NOT NULL,
+  expression varchar(24) NOT NULL,
+  color char(7) NOT NULL,
+  seed varchar(6) NOT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT user_avatars_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_avatars_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
+  CONSTRAINT user_avatars_shape_supported CHECK (shape IN (
+    'circle', 'pebble', 'squircle', 'capsule', 'triangle', 'diamond', 'hexagon',
+    'star', 'cloud', 'droplet', 'heart', 'ghost', 'cat', 'bear', 'bunny',
+    'amoeba', 'flower', 'clover', 'leaf', 'gem', 'bubble'
+  )),
+  CONSTRAINT user_avatars_expression_supported CHECK (expression IN (
+    'neutral', 'attentive', 'focused', 'surprised', 'excited', 'happy',
+    'laughing', 'wink', 'angry', 'sad', 'worried', 'scared', 'suspicious',
+    'confused', 'curious', 'proud', 'smug', 'shy', 'unimpressed', 'sleepy',
+    'pleading', 'determined', 'tired', 'crosseyed', 'content', 'dreamy'
+  )),
+  CONSTRAINT user_avatars_color_supported CHECK (color IN (
+    '#8B5CF6', '#3B82F6', '#14B8A6', '#EC4899',
+    '#F97316', '#FBBF24', '#84CC16', '#64748B'
+  )),
+  CONSTRAINT user_avatars_color_format CHECK (color ~ '^#[0-9A-F]{6}$'),
+  CONSTRAINT user_avatars_seed_format CHECK (seed ~ '^[0-9a-z]{1,6}$')
+);
+
 CREATE TABLE IF NOT EXISTS public.tracks (
   id integer NOT NULL DEFAULT nextval('tracks_id_seq'::regclass),
   name varchar(255) NOT NULL,

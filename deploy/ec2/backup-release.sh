@@ -12,8 +12,8 @@ if [[ ! ${release_id} =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-app_directory=/opt/trackfusion/api
-config_directory=/etc/trackfusion
+app_directory=/opt/trackfusionweb/api
+config_directory=/etc/trackfusionweb
 backup_root=/var/backups/trackfusionweb-api
 database_name=trackfusionweb_db
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)

@@ -12,7 +12,7 @@ mock_mode_file="${mock_directory}/mode"
 aws_call_log="${test_directory}/aws-call.log"
 fake_session='session-secret-00000000000000000000000000000000'
 fake_jwt='jwt-secret-0000000000000000000000000000000000'
-fake_database='postgresql://trackfusion:fake-password@127.0.0.1:5432/trackfusionweb_db'
+fake_database='postgresql://trackfusionweb:fake-password@127.0.0.1:5432/trackfusionweb_db'
 fake_resend='re_fake_value_that_must_not_be_logged'
 
 cleanup() {
@@ -42,7 +42,7 @@ EMAIL_PROVIDER=resend
 EMAIL_DELIVERY_ENABLED=true
 EMAIL_VALIDATE_MX=false
 REDIS_URL=redis://127.0.0.1:6379
-PYTHON_EXECUTABLE=/opt/trackfusion/api/venv/bin/python
+PYTHON_EXECUTABLE=/opt/trackfusionweb/api/venv/bin/python
 AUDIO_MAX_LENGTH=900
 AUDIO_MAX_FILE_SIZE=300
 IMAGE_MAX_FILE_SIZE=50
@@ -52,7 +52,7 @@ EXPOSE_OTP_IN_DEVELOPMENT=false
 EXPOSE_RESET_TOKEN_IN_DEVELOPMENT=false
 SESSION_SECRET=legacy-session-secret-that-must-be-replaced
 JWT_SECRET=legacy-jwt-secret-that-must-be-replaced
-DATABASE_URL=postgresql://trackfusion:legacy@127.0.0.1:5432/trackfusionweb_db
+DATABASE_URL=postgresql://trackfusionweb:legacy@127.0.0.1:5432/trackfusionweb_db
 RESEND_API_KEY=legacy-resend-key
 INSTANCE_SETTING=preserve-this
 EOF
@@ -81,7 +81,7 @@ case ${mode} in
   "Parameters": [
     {"Name":"/trackfusionweb/production/api/SESSION_SECRET","Type":"SecureString","Value":"session-secret-00000000000000000000000000000000","DataType":"text"},
     {"Name":"/trackfusionweb/production/api/JWT_SECRET","Type":"SecureString","Value":"jwt-secret-0000000000000000000000000000000000","DataType":"text"},
-    {"Name":"/trackfusionweb/production/api/DATABASE_URL","Type":"SecureString","Value":"postgresql://trackfusion:fake-password@127.0.0.1:5432/trackfusionweb_db","DataType":"text"},
+    {"Name":"/trackfusionweb/production/api/DATABASE_URL","Type":"SecureString","Value":"postgresql://trackfusionweb:fake-password@127.0.0.1:5432/trackfusionweb_db","DataType":"text"},
     {"Name":"/trackfusionweb/production/api/RESEND_API_KEY","Type":"SecureString","Value":"re_fake_value_that_must_not_be_logged","DataType":"text"}
   ],
   "InvalidParameters": []

@@ -22,6 +22,7 @@ a private GitHub security advisory, not in this document.
 | ENG-014 | High | GitHub environments | Production deployment requires three main-only environments and reviewer protection for infrastructure apply. | Preserve the documented solo-maintainer environment/reviewer setup and retain the fail-closed API preflight. | Resolved 2026-10-30: setup completed and preflight passed in workflow #83 |
 | ENG-015 | Medium | Host dependencies | AWS CLI v2 is present on the production host, but `bootstrap-host.sh` still does not install or pin it for reproducible replacement hosts. | Incorporate a pinned official AWS CLI v2 into the future image/bootstrap strategy. | Activation prerequisite resolved 2026-10-30; lifecycle hardening remains open |
 | ENG-016 | High | Database credential rotation | Updating the Parameter Store `DATABASE_URL` does not transactionally update the local PostgreSQL role password. | Design a separately approved database credential rotation and rollback procedure before rotating this parameter. | Open; the completed migration does not replace the need for coordinated rotation |
+| ENG-017 | Medium | Avatar persistence | Blob avatar selections previously had no normalized server-side persistence contract. | Keep the authenticated upsert, public nullable response, schema verification, and cross-layer trait contract tests together when avatar options change. | Resolved on `feat/blob-avatars-and-artwork-fix` |
 
 ## Final targeted legacy cleanup (2026-11-01)
 

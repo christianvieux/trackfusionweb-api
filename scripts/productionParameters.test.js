@@ -19,7 +19,7 @@ import {
 const fakeValues = {
   SESSION_SECRET: "session-secret-00000000000000000000000000000000",
   JWT_SECRET: "jwt-secret-0000000000000000000000000000000000",
-  DATABASE_URL: "postgresql://trackfusion:fake-password@127.0.0.1:5432/trackfusionweb_db",
+  DATABASE_URL: "postgresql://trackfusionweb:fake-password@127.0.0.1:5432/trackfusionweb_db",
   RESEND_API_KEY: "re_fake_value_that_must_not_be_logged",
 };
 
@@ -42,7 +42,7 @@ const legacyEnvironment = [
   "INSTANCE_SETTING=preserve-this",
   "SESSION_SECRET=legacy-session-secret-that-must-be-replaced",
   "JWT_SECRET=legacy-jwt-secret-that-must-be-replaced",
-  "DATABASE_URL=postgresql://trackfusion:legacy@127.0.0.1:5432/trackfusionweb_db",
+  "DATABASE_URL=postgresql://trackfusionweb:legacy@127.0.0.1:5432/trackfusionweb_db",
   "RESEND_API_KEY=legacy-resend-key",
   "",
 ].join("\n");
@@ -125,7 +125,7 @@ test("rejects duplicate environment keys and the legacy Secrets Manager source",
 });
 
 test("writes a protected destination atomically and never overwrites it", () => {
-  const directory = mkdtempSync(join(tmpdir(), "trackfusion-parameters-"));
+  const directory = mkdtempSync(join(tmpdir(), "trackfusionweb-parameters-"));
   const destination = join(directory, ".env");
   try {
     writePrivateFileAtomically(destination, "FIRST=value\n");

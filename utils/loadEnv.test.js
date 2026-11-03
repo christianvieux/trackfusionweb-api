@@ -36,7 +36,7 @@ function configureValidProductionEnvironment() {
     NODE_ENV: "production",
     SESSION_SECRET: "s".repeat(32),
     JWT_SECRET: "j".repeat(32),
-    DATABASE_URL: "postgresql://trackfusion:password@127.0.0.1:5432/trackfusionweb_db",
+    DATABASE_URL: "postgresql://trackfusionweb:password@127.0.0.1:5432/trackfusionweb_db",
     EMAIL_DELIVERY_ENABLED: "true",
     EMAIL_PROVIDER: "resend",
     RESEND_API_KEY: "test-resend-api-key",
@@ -93,7 +93,7 @@ test("requires the production database identity before deployment", () => {
     "postgresql://different-user:password@database.example:5432/other";
 
   expect(() => validateEnvironment()).toThrow(
-    "DATABASE_URL must identify the local trackfusion production database",
+    "DATABASE_URL must identify the local trackfusionweb production database",
   );
 });
 

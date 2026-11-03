@@ -315,7 +315,7 @@ protected upload routes from disagreeing when one redundant cookie is missing.
 | Area | Example routes |
 | --- | --- |
 | Health | `GET /health` |
-| Accounts | `POST /users/register`, `GET /users/info/:userId` |
+| Accounts | `POST /users/register`, `GET /users/info/:userId`, `PUT /users/avatar` |
 | Sign-in | `POST /auth/login`, `POST /auth/logout`, `GET /auth/session` |
 | Tracks | `GET /tracks/public`, `GET /tracks/user`, `PUT /tracks/:id` |
 | Favorites | `GET /tracks/favorites`, `POST /tracks/favorites` |
@@ -359,6 +359,8 @@ Actions deploys through short-lived AWS access instead of stored AWS keys.
 - Infrastructure definitions: [`infrastructure/terraform/`](infrastructure/terraform/)
 - Server and Nginx configuration: [`deploy/`](deploy/)
 - Local setting descriptions: [`.env.example`](.env.example)
+- Blob avatar endpoint and database contract:
+  [`docs/avatar-api.md`](docs/avatar-api.md)
 - Deployment architecture and configuration audit:
   [`docs/deployment-architecture-audit.md`](docs/deployment-architecture-audit.md)
 - Protected Terraform planning and deployment orchestration:

@@ -19,6 +19,15 @@ const expectedColumns = {
     "profile_picture_url",
     "is_verified",
   ],
+  user_avatars: [
+    "user_id",
+    "shape",
+    "expression",
+    "color",
+    "seed",
+    "created_at",
+    "updated_at",
+  ],
   tracks: [
     "id",
     "name",

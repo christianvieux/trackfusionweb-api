@@ -1,4 +1,7 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const deploy = readFileSync("deploy/ec2/deploy-release.sh", "utf8");
 const migration = readFileSync(
@@ -70,4 +73,56 @@ test("Compose migrates an existing database volume before starting the API", () 
   expect(compose.slice(dependency)).toContain(
     "condition: service_completed_successfully",
   );
+});
+
+test.each([
+  ["unquoted", "postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db"],
+  ["quoted", "\"postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db\""],
+])("legacy database URL parser accepts %s .env values", (_label, value) => {
+  const match = migration.match(
+    /\\/usr\\/local\\/bin\\/node --input-type=module --eval '\\n([\\s\\S]*?)\\n' "\\$\\{legacy_config_directory\\}\\/\\.env" "\\$\\{old_database_url_file\\}"/,
+  );
+  expect(match).not.toBeNull();
+
+  const directory = mkdtempSync(join(tmpdir(), "trackfusionweb-db-url-"));
+  try {
+    const input = join(directory, ".env");
+    const output = join(directory, "database-url");
+    writeFileSync(input, `DATABASE_URL=${value}\\n`);
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", match[1], input, output],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, "utf8")).toBe(
+      "postgresql://trackfusion:example%21@127.0.0.1:5432/trackfusionweb_db\\n",
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("legacy database URL parser does not leak malformed credentials", () => {
+  const match = migration.match(
+    /\\/usr\\/local\\/bin\\/node --input-type=module --eval '\\n([\\s\\S]*?)\\n' "\\$\\{legacy_config_directory\\}\\/\\.env" "\\$\\{old_database_url_file\\}"/,
+  );
+  expect(match).not.toBeNull();
+
+  const directory = mkdtempSync(join(tmpdir(), "trackfusionweb-db-invalid-"));
+  try {
+    const input = join(directory, ".env");
+    const output = join(directory, "database-url");
+    writeFileSync(input, 'DATABASE_URL="not-a-url-private-value"\\n');
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", match[1], input, output],
+      { encoding: "utf8" },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("the legacy DATABASE_URL is invalid");
+    expect(result.stderr).not.toContain("not-a-url-private-value");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

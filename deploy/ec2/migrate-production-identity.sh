@@ -171,7 +171,16 @@ trap restore_legacy_identity ERR INT HUP TERM
     .split(/\r?\n/)
     .find((entry) => entry.startsWith("DATABASE_URL="));
   if (!line) throw new Error("DATABASE_URL is missing");
-  const url = new URL(line.slice("DATABASE_URL=".length));
+  const value = line.slice("DATABASE_URL=".length).trim();
+  const databaseUrl = value.startsWith("\"") && value.endsWith("\"")
+    ? value.slice(1, -1)
+    : value;
+  let url;
+  try {
+    url = new URL(databaseUrl);
+  } catch {
+    throw new Error("the legacy DATABASE_URL is invalid");
+  }
   if (url.username !== "trackfusion") {
     throw new Error("the legacy database identity is not present");
   }

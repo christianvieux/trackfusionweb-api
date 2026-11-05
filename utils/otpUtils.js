@@ -143,16 +143,6 @@ export async function generateOtpCode(email, purpose) {
   return otpCode;
 }
 
-export function isOtpCodeValid(email, code, purpose) {
-  if (!email || !code || !purpose) {
-    throw new Error("Email, code, and purpose are required");
-  }
-
-  return withTransaction((query) =>
-    validateOtpWithQuery(query, email, code, purpose, false),
-  );
-}
-
 export function consumeOtpCodeWithQuery(query, email, code, purpose) {
   if (!email || !code || !purpose) {
     throw new Error("Email, code, and purpose are required");

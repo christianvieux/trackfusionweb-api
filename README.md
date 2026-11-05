@@ -361,19 +361,27 @@ Actions deploys through short-lived AWS access instead of stored AWS keys.
 - Local setting descriptions: [`.env.example`](.env.example)
 - Blob avatar endpoint and database contract:
   [`docs/avatar-api.md`](docs/avatar-api.md)
-- Deployment architecture and configuration audit:
-  [`docs/deployment-architecture-audit.md`](docs/deployment-architecture-audit.md)
-- Protected Terraform planning and deployment orchestration:
-  [`docs/deployment-orchestration.md`](docs/deployment-orchestration.md)
-- Production Parameter Store migration and operations:
-  [`docs/production-secrets-runbook.md`](docs/production-secrets-runbook.md)
 
 Production secret migration was completed on October 30, 2026. The EC2 host
 selects `ssm-parameter-store` and deployments retrieve `SESSION_SECRET`,
 `JWT_SECRET`, `DATABASE_URL`, and `RESEND_API_KEY` from KMS-encrypted SSM
 `SecureString` parameters before generating the protected runtime environment.
-The completed migration procedure and current operating guidance are retained
-in the production secrets runbook.
+
+Production infrastructure and settings changes are restricted operator work.
+Submit reviewed changes through the protected GitHub Actions workflows from
+`main`; do not apply Terraform manually or deploy by editing the host. Terraform
+changes must pass the workflow plan gate before an authorized apply. Non-secret
+production settings belong in `deploy/ec2/production-managed.env`; secret
+values belong only in the approved encrypted parameter store. Never put a
+secret in a command argument, terminal transcript, log, ticket, or document.
+
+Secret creation and rotation must use the protected operator procedure and
+metadata-only verification. A `DATABASE_URL` rotation also requires a
+coordinated database credential change; changing only the parameter can lock
+the API out of PostgreSQL. Deployments create protected release and database
+backups, run health checks, and restore the prior release and runtime
+configuration after a failed health check. Restoring database contents or
+private media is a separate, explicit recovery decision.
 
 ### TrackFusionWeb identity migration
 
@@ -503,11 +511,10 @@ it to Git.
 Production now selects `ssm-parameter-store` in the root-owned
 `/etc/trackfusionweb/secret-source`. The protected `/etc/trackfusionweb/.env` is a
 generated runtime projection: do not edit its four secret values directly.
-Update production secrets through the authorized Parameter Store procedure in
-[`docs/production-secrets-runbook.md`](docs/production-secrets-runbook.md).
+Authorized operators update production secrets through the protected Parameter
+Store procedure using restricted input files and metadata-only verification.
 Secret values must never appear directly in shell command arguments, terminal
-transcripts, logs, tickets, or documentation. Approved AWS CLI operations use
-protected input files as documented in that runbook.
+transcripts, logs, tickets, or documentation.
 
 The deployment manages `EMAIL_PROVIDER=resend` and
 `EMAIL_DELIVERY_ENABLED=true`, but intentionally does not copy secrets from the

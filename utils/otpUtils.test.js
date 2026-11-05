@@ -15,7 +15,6 @@ jest.mock("../services/emailService.js", () => ({
 import {
   consumeOtpCodeWithQuery,
   generateOtpCode,
-  isOtpCodeValid,
   isOtpCooldownActive,
 } from "./otpUtils.js";
 
@@ -81,25 +80,38 @@ test("expires an OTP and refuses it", async () => {
   const { query, state } = createOtpQuery({
     expiresAt: new Date(Date.now() - 1_000),
   });
-  mockWithTransaction.mockImplementation((callback) => callback(query));
 
   await expect(
-    isOtpCodeValid("listener@example.com", "123456", "registration"),
+    consumeOtpCodeWithQuery(
+      query,
+      "listener@example.com",
+      "123456",
+      "registration",
+    ),
   ).resolves.toEqual({ isValid: false, reason: "Code has expired" });
   expect(state.active).toBe(false);
 });
 
 test("invalidates an OTP after five failed attempts", async () => {
   const { query, state } = createOtpQuery();
-  mockWithTransaction.mockImplementation((callback) => callback(query));
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     await expect(
-      isOtpCodeValid("listener@example.com", "000000", "registration"),
+      consumeOtpCodeWithQuery(
+        query,
+        "listener@example.com",
+        "000000",
+        "registration",
+      ),
     ).resolves.toMatchObject({ isValid: false });
   }
   await expect(
-    isOtpCodeValid("listener@example.com", "123456", "registration"),
+    consumeOtpCodeWithQuery(
+      query,
+      "listener@example.com",
+      "123456",
+      "registration",
+    ),
   ).resolves.toMatchObject({ isValid: false });
   expect(state.attempts).toBe(5);
   expect(state.active).toBe(false);

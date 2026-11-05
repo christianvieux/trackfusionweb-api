@@ -64,5 +64,3 @@ const corsOptions = {
 };
 
 export { corsOptions };
-
-export default corsOptions;

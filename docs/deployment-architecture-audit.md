@@ -287,6 +287,4 @@ deployment are complete. Remaining work includes:
   legitimate changed production plan exists;
 - designing coordinated credential rotation, especially for `DATABASE_URL`;
 - improving off-host backup, retention, restore testing, and recovery
-  objectives; and
-- addressing the other open items in
-  [`engineering-backlog.md`](engineering-backlog.md).
+  objectives.

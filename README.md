@@ -367,7 +367,6 @@ Actions deploys through short-lived AWS access instead of stored AWS keys.
   [`docs/deployment-orchestration.md`](docs/deployment-orchestration.md)
 - Production Parameter Store migration and operations:
   [`docs/production-secrets-runbook.md`](docs/production-secrets-runbook.md)
-- Engineering backlog: [`docs/engineering-backlog.md`](docs/engineering-backlog.md)
 
 Production secret migration was completed on October 30, 2026. The EC2 host
 selects `ssm-parameter-store` and deployments retrieve `SESSION_SECRET`,

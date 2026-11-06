@@ -38,6 +38,16 @@ function normalizeLimit(limit) {
   return parsedLimit;
 }
 
+function normalizePage(page) {
+  if (page == null) return null;
+
+  const parsedPage = Number(page);
+  if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+    throw new Error("Track page must be a positive integer");
+  }
+  return parsedPage;
+}
+
 function buildScope(scope, userId, values) {
   if (scope === "public") return "NOT tracks.is_private";
 
@@ -79,11 +89,31 @@ export async function getTrackCollectionPage({
   userId,
   limit,
   cursor,
+  page,
 }) {
   const pageSize = normalizeLimit(limit);
   const decodedCursor = decodeTrackCursor(cursor);
+  const pageNumber = normalizePage(page);
+
+  if (decodedCursor && pageNumber) {
+    throw new Error("Use either a track cursor or page number, not both");
+  }
+
   const values = [];
   const conditions = [buildScope(scope, userId, values)];
+  let totalCount = null;
+
+  if (pageNumber) {
+    const countValues = [];
+    const countScope = buildScope(scope, userId, countValues);
+    const countResult = await queryToDatabase(
+      `SELECT COUNT(*) AS total_count
+         FROM tracks
+        WHERE ${countScope}`,
+      countValues,
+    );
+    totalCount = Number(countResult.rows[0]?.total_count || 0);
+  }
 
   if (decodedCursor) {
     values.push(decodedCursor.createdAt, decodedCursor.id);
@@ -96,6 +126,11 @@ export async function getTrackCollectionPage({
 
   values.push(pageSize + 1);
   const limitParameter = `$${values.length}`;
+  let offsetClause = "";
+  if (pageNumber) {
+    values.push((pageNumber - 1) * pageSize);
+    offsetClause = `OFFSET $${values.length}`;
+  }
   const result = await queryToDatabase(
     `WITH page AS MATERIALIZED (
        SELECT tracks.*
@@ -103,6 +138,7 @@ export async function getTrackCollectionPage({
         WHERE ${conditions.join(" AND ")}
         ORDER BY tracks.created_at DESC, tracks.id DESC
         LIMIT ${limitParameter}
+        ${offsetClause}
      )
      SELECT page.*,
             favorite_counts.favorites_count,
@@ -137,12 +173,20 @@ export async function getTrackCollectionPage({
   const pageRows = result.rows.slice(0, pageSize);
   const tracks = await authorizeTrackArtworkList(pageRows);
 
+  const pageInfo = {
+    limit: pageSize,
+    hasNextPage,
+    nextCursor: hasNextPage ? encodeTrackCursor(pageRows.at(-1)) : null,
+  };
+
+  if (pageNumber) {
+    pageInfo.page = pageNumber;
+    pageInfo.totalCount = totalCount;
+    pageInfo.totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  }
+
   return {
     tracks,
-    pageInfo: {
-      limit: pageSize,
-      hasNextPage,
-      nextCursor: hasNextPage ? encodeTrackCursor(pageRows.at(-1)) : null,
-    },
+    pageInfo,
   };
 }

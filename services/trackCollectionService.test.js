@@ -92,9 +92,45 @@ test("scopes favorite pages to the authenticated user", async () => {
   expect(mockQueryToDatabase.mock.calls[0][1]).toEqual([12, 11]);
 });
 
+test("returns total metadata for a numbered page", async () => {
+  const rows = [
+    {
+      id: 8,
+      created_at: new Date("2026-01-08T00:00:00.000Z"),
+      creator: { id: 4, username: "creator", avatar: null },
+    },
+  ];
+  mockQueryToDatabase
+    .mockResolvedValueOnce({ rows: [{ total_count: "13" }] })
+    .mockResolvedValueOnce({ rows });
+
+  const result = await getTrackCollectionPage({
+    scope: "public",
+    limit: 6,
+    page: 2,
+  });
+
+  expect(result).toEqual({
+    tracks: rows,
+    pageInfo: {
+      limit: 6,
+      hasNextPage: false,
+      nextCursor: null,
+      page: 2,
+      totalCount: 13,
+      totalPages: 3,
+    },
+  });
+  expect(mockQueryToDatabase.mock.calls[0][0]).toContain("COUNT(*)");
+  expect(mockQueryToDatabase.mock.calls[0][1]).toEqual([]);
+  expect(mockQueryToDatabase.mock.calls[1][0]).toContain("OFFSET $2");
+  expect(mockQueryToDatabase.mock.calls[1][1]).toEqual([7, 6]);
+});
+
 test.each([
   { limit: 0, cursor: null },
   { limit: 101, cursor: null },
+  { limit: 10, page: 0 },
   { limit: 10, cursor: "not-a-cursor" },
 ])("rejects invalid page boundaries %#", async (options) => {
   await expect(

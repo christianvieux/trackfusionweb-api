@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { withActiveJobRetention } from "./jobRetention.js";
 
 export function buildUploadJobOptions(kind, userId, key) {
   const digest = crypto
@@ -7,11 +8,13 @@ export function buildUploadJobOptions(kind, userId, key) {
     .digest("hex")
     .slice(0, 32);
 
-  return {
+  const options = {
     jobId: `${kind}-${digest}`,
     attempts: 3,
     backoff: { type: "exponential", delay: 1_000 },
   };
+
+  return kind === "track" ? withActiveJobRetention(options) : options;
 }
 
 export function isFinalJobAttempt(job) {

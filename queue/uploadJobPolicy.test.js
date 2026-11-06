@@ -10,7 +10,20 @@ test("deduplicates retries for the same user upload key", () => {
   expect(first).toMatchObject({
     attempts: 3,
     backoff: { type: "exponential", delay: 1_000 },
+    removeOnComplete: { age: 86_400, count: 1_000 },
+    removeOnFail: { age: 2_592_000, count: 5_000 },
   });
+});
+
+test("does not change the blocked profile-picture compatibility queue", () => {
+  const options = buildUploadJobOptions(
+    "profile",
+    42,
+    "uploads/42/profile.png",
+  );
+
+  expect(options).not.toHaveProperty("removeOnComplete");
+  expect(options).not.toHaveProperty("removeOnFail");
 });
 
 test("retains staging data until the final failed attempt", () => {

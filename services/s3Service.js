@@ -361,6 +361,12 @@ export class S3Service {
     return this.finalizeUpload(uploadKey, userId, "TRACK_COVER", trackId);
   }
 
+  async uploadProcessedCover(localFilePath, userId, trackId) {
+    const destinationKey = `covers/${userId}/${trackId}-${Date.now()}-cover.webp`;
+    const url = await this.uploadFile(localFilePath, destinationKey, "image/webp");
+    return { key: destinationKey, url };
+  }
+
   finalizeAlbumCoverUpload(uploadKey, userId, albumId) {
     return this.finalizeUpload(uploadKey, userId, "ALBUM_COVER", albumId);
   }

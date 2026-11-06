@@ -14,6 +14,10 @@ const localEnvironment = {
   STORAGE_SECRET_ACCESS_KEY: "trackfusionweb-local-secret",
 };
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 test("selects AWS S3 without static credentials or a custom endpoint", () => {
   expect(
     resolveStorageConfig({
@@ -93,4 +97,24 @@ test("restricts staging keys to the authenticated user's prefix", () => {
   expect(belongsToUserUpload("uploads/42/example.mp3", 42)).toBe(true);
   expect(belongsToUserUpload("uploads/7/example.mp3", 42)).toBe(false);
   expect(belongsToUserUpload("tracks/42/example.mp3", 42)).toBe(false);
+});
+
+test("stores normalized track covers with a WebP content type", async () => {
+  const service = new S3Service(localEnvironment);
+  const uploadFile = jest
+    .spyOn(service, "uploadFile")
+    .mockResolvedValue("covers/42/7-123-cover.webp");
+  jest.spyOn(Date, "now").mockReturnValue(123);
+
+  await expect(
+    service.uploadProcessedCover("/tmp/cover.webp", 42, 7),
+  ).resolves.toEqual({
+    key: "covers/42/7-123-cover.webp",
+    url: "covers/42/7-123-cover.webp",
+  });
+  expect(uploadFile).toHaveBeenCalledWith(
+    "/tmp/cover.webp",
+    "covers/42/7-123-cover.webp",
+    "image/webp",
+  );
 });

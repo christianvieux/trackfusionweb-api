@@ -13,6 +13,8 @@ const VALID_IMAGE_TYPES = new Set(
     .map(type => type.replace('image/', '')) ||
   ['jpeg', 'jpg', 'png', 'heic', 'heif'])
 );
+export const TRACK_ARTWORK_MAX_DIMENSION = 1200;
+export const TRACK_ARTWORK_QUALITY = 82;
 
 export class ImageService {
   async analyzeFile(filePath) {
@@ -180,6 +182,31 @@ export class ImageService {
     } catch (error) {
       console.error('Error processing profile image:', error);
       throw new Error(`Failed to process profile image: ${error.message}`);
+    }
+  }
+
+  async processForTrackArtwork(filePath, outputPath) {
+    try {
+      const output = await sharp(filePath)
+        .rotate()
+        .resize(TRACK_ARTWORK_MAX_DIMENSION, TRACK_ARTWORK_MAX_DIMENSION, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: TRACK_ARTWORK_QUALITY })
+        .toFile(outputPath);
+
+      return {
+        success: true,
+        path: outputPath,
+        width: output.width,
+        height: output.height,
+        size: output.size,
+        format: output.format,
+      };
+    } catch (error) {
+      console.error("Error processing track artwork:", error);
+      throw new Error(`Failed to process track artwork: ${error.message}`);
     }
   }
 }

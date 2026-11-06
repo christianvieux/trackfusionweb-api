@@ -2,7 +2,13 @@
 
 import express from "express";
 import Joi from 'joi';
-import { getUserPublicFavoriteTracks, getUserPublicTracks } from "../controllers/userController.js";
+import {
+  getUserPublicFavoriteTracks,
+  getUserPublicFavoriteTracksPage,
+  getUserPublicTracks,
+  getUserPublicTracksPage,
+} from "../controllers/userController.js";
+import { validateTrackPagination } from "../utils/trackPagination.js";
 
 const router = express.Router();
 const schema = Joi.object({
@@ -23,6 +29,13 @@ router.get("/favorite-tracks/:userId", async (req, res) => {
     return res.status(400).json({ error: error.details[0].message });
   }
   try {
+    if (req.query.paginated === "true") {
+      const { error: paginationError, value } = validateTrackPagination(req.query);
+      if (paginationError) {
+        return res.status(400).json({ error: paginationError.details[0].message });
+      }
+      return res.json(await getUserPublicFavoriteTracksPage(userId, value));
+    }
     const favoriteTracks = await getUserPublicFavoriteTracks(userId);
     res.json(favoriteTracks);
   } catch (error) {
@@ -40,6 +53,13 @@ router.get("/tracks/:userId", async (req, res) => {
       return res.status(400).json({ error: error.details[0].message });
     }
     try {
+      if (req.query.paginated === "true") {
+        const { error: paginationError, value } = validateTrackPagination(req.query);
+        if (paginationError) {
+          return res.status(400).json({ error: paginationError.details[0].message });
+        }
+        return res.json(await getUserPublicTracksPage(userId, value));
+      }
       const favoriteTracks = await getUserPublicTracks(userId);
       res.json(favoriteTracks);
     } catch (error) {

@@ -2,6 +2,7 @@ import { queryToDatabase } from '../services/dbService.js';
 import NodeCache from 'node-cache';
 import { s3Service } from '../services/s3Service.js';
 import { authorizeTrackArtwork, authorizeTrackArtworkList } from '../services/mediaUrlService.js';
+import { getTrackCollectionPage } from '../services/trackCollectionService.js';
 const tokenCache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
 
 
@@ -172,6 +173,10 @@ export async function getPublicTracks() {
   }
 }
 
+export function getPublicTracksPage(options) {
+  return getTrackCollectionPage({ scope: "public", ...options });
+}
+
 // Get a user's favorite tracks
 export async function getUserFavoriteTracks(userId) {
   const query = `
@@ -193,6 +198,10 @@ export async function getUserFavoriteTracks(userId) {
   }
 }
 
+export function getUserFavoriteTracksPage(userId, options) {
+  return getTrackCollectionPage({ scope: "favorites", userId, ...options });
+}
+
 // Function to get a user's created tracks
 export async function getUserTracks(userId) {
   const query = `
@@ -211,6 +220,10 @@ export async function getUserTracks(userId) {
   } catch (error) {
     throw error;
   }
+}
+
+export function getUserTracksPage(userId, options) {
+  return getTrackCollectionPage({ scope: "owned", userId, ...options });
 }
 
 // Function to add a favorite track

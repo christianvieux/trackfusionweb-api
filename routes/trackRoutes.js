@@ -11,9 +11,13 @@ import {
   favoriteTrack,
   unfavoriteTrack,
   getUserTracks,
+  getPublicTracksPage,
+  getUserFavoriteTracksPage,
+  getUserTracksPage,
 } from "../controllers/trackController.js";
 import { authorizeTrackUrl } from "../controllers/trackController.js";
 import { authenticateToken } from "../middlewares/authMiddleware.js";
+import { validateTrackPagination } from "../utils/trackPagination.js";
 
 const router = express.Router();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -54,6 +58,11 @@ router.get("/:id/authorized-url", async (req, res) => {
 router.get("/user", authenticateToken, async (req, res) => {
   const userId = req.user.id;
   try {
+    if (req.query.paginated === "true") {
+      const { error, value } = validateTrackPagination(req.query);
+      if (error) return res.status(400).json({ error: error.details[0].message });
+      return res.json(await getUserTracksPage(userId, value));
+    }
     const userTracks = await getUserTracks(userId);
     res.json(userTracks);
   } catch (error) {
@@ -65,6 +74,11 @@ router.get("/user", authenticateToken, async (req, res) => {
 // Route to get public tracks
 router.get("/public", async (req, res) => {
   try {
+    if (req.query.paginated === "true") {
+      const { error, value } = validateTrackPagination(req.query);
+      if (error) return res.status(400).json({ error: error.details[0].message });
+      return res.json(await getPublicTracksPage(value));
+    }
     const publicTracks = await getPublicTracks();
     res.json(publicTracks);
   } catch (error) {
@@ -77,6 +91,11 @@ router.get("/public", async (req, res) => {
 router.get("/favorites", authenticateToken, async (req, res) => {
   const userId = req.user.id;
   try {
+    if (req.query.paginated === "true") {
+      const { error, value } = validateTrackPagination(req.query);
+      if (error) return res.status(400).json({ error: error.details[0].message });
+      return res.json(await getUserFavoriteTracksPage(userId, value));
+    }
     const favoriteTracks = await getUserFavoriteTracks(userId);
     res.json(favoriteTracks);
   } catch (error) {

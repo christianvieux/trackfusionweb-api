@@ -3,6 +3,7 @@ import { queryToDatabase } from '../services/dbService.js';
 import { normalizeEmail } from '../utils/emailUtils.js';
 import { authorizeMediaReference, authorizeTrackArtworkList } from '../services/mediaUrlService.js';
 import { saveAvatarForUser, validateAvatarConfig } from '../services/avatarService.js';
+import { getTrackCollectionPage } from '../services/trackCollectionService.js';
 
 export async function updateUserOnDatabase(userId, properties) {
   const query = `UPDATE users SET ${Object.keys(properties).map((key, index) => `${key} = $${index + 2}`).join(', ')} WHERE id = $1 RETURNING *`;
@@ -117,6 +118,14 @@ export async function getUserPublicFavoriteTracks(userId) {
   }
 }
 
+export function getUserPublicFavoriteTracksPage(userId, options) {
+  return getTrackCollectionPage({
+    scope: "public-favorites",
+    userId,
+    ...options,
+  });
+}
+
 export async function getUserPublicTracks(userId) {
   const query = `
     SELECT tracks.*, 
@@ -135,4 +144,8 @@ export async function getUserPublicTracks(userId) {
   } catch (error) {
     throw error;
   }
+}
+
+export function getUserPublicTracksPage(userId, options) {
+  return getTrackCollectionPage({ scope: "public-owned", userId, ...options });
 }

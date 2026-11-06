@@ -277,6 +277,12 @@ ALTER SEQUENCE otp_codes_id_seq OWNED BY otp_codes.id;
 -- INDEXES
 CREATE INDEX IF NOT EXISTS tracks_creator_id_idx ON public.tracks (creator_id);
 CREATE INDEX IF NOT EXISTS track_interactions_user_id_idx ON public.track_interactions (user_id);
+CREATE INDEX IF NOT EXISTS tracks_public_created_id_idx
+  ON public.tracks (created_at DESC, id DESC) WHERE is_private = FALSE;
+CREATE INDEX IF NOT EXISTS tracks_creator_created_id_idx
+  ON public.tracks (creator_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS track_interactions_user_track_idx
+  ON public.track_interactions (user_id, track_id);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_id_idx ON public.password_reset_tokens (user_id);
 CREATE INDEX IF NOT EXISTS otp_codes_lookup_idx ON public.otp_codes (email, purpose, created_at DESC);
 CREATE INDEX IF NOT EXISTS registration_grants_lookup_idx

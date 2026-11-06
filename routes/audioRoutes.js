@@ -3,6 +3,7 @@ import path from "path";
 import { audioAnalysisQueue, audioQueue } from '../queue/audioQueue.js';
 import { authenticateToken } from "../middlewares/authMiddleware.js";
 import { analyzeAudioSchema } from "../utils/audioAnalysisRequest.js";
+import { withActiveJobRetention } from "../queue/jobRetention.js";
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -85,11 +86,14 @@ router.post("/analyze", async (req, res) => {
     }
 
     // Add to analysis queue
-    const job = await audioAnalysisQueue.add({
-      userId: req.user.id,
-      trackUrl,
-      bpmRange,
-    });
+    const job = await audioAnalysisQueue.add(
+      {
+        userId: req.user.id,
+        trackUrl,
+        bpmRange,
+      },
+      withActiveJobRetention(),
+    );
 
     res.status(202).json({ 
       jobId: job.id,

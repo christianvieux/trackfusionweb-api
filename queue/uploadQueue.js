@@ -1,4 +1,5 @@
 // services/uploadQueue.js
+import path from "path";
 import Queue from 'bull';
 import { audioService } from "../services/audioService.js";
 import { imageService } from "../services/imageService.js";
@@ -18,6 +19,7 @@ trackUploadQueue.process("track", async (job) => {
   let uploadedTrack;
   let finalizedTrack;
   let finalizedCover;
+  let processedCoverPath;
   let completed = false;
   const {
     userId,
@@ -59,6 +61,16 @@ trackUploadQueue.process("track", async (job) => {
       if (!validation.isValid) {
         throw new Error(validation.error);
       }
+
+      processedCoverPath = path.join(
+        path.dirname(imageDownloadResult.filePath),
+        `${path.basename(imageDownloadResult.filePath)}.normalized.webp`,
+      );
+      tempFiles.push(processedCoverPath);
+      await imageService.processForTrackArtwork(
+        imageDownloadResult.filePath,
+        processedCoverPath,
+      );
     }
 
     // Analyze the audio file
@@ -101,8 +113,8 @@ trackUploadQueue.process("track", async (job) => {
     job.progress("Finalizing upload...");
     try {
       if (imageUrl) {
-        finalizedCover = await s3Service.finalizeCoverArtUpload(
-          imageUrl.key,
+        finalizedCover = await s3Service.uploadProcessedCover(
+          processedCoverPath,
           userId,
           uploadedTrack.id
         );

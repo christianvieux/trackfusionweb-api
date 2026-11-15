@@ -40,6 +40,8 @@ test_preflight_rejects_missing_email_secret() {
     "${staging_directory}/scripts/productionParameters.js"
   cp "${repository_root}/utils/loadEnv.js" \
     "${staging_directory}/utils/loadEnv.js"
+  cp "${repository_root}/utils/browserOrigins.js" \
+    "${staging_directory}/utils/browserOrigins.js"
   cp "${repository_root}/deploy/ec2/reconcile-environment-file.sh" \
     "${staging_directory}/deploy/ec2/reconcile-environment-file.sh"
   cp "${repository_root}/deploy/ec2/reconcile-production-environment.sh" \

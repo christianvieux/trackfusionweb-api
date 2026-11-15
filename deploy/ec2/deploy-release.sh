@@ -53,6 +53,8 @@ for required_path in \
   "${staging_directory}/requirements.txt" \
   "${staging_directory}/scripts/validateEnvironment.js" \
   "${staging_directory}/scripts/productionParameters.js" \
+  "${staging_directory}/utils/browserOrigins.js" \
+  "${staging_directory}/utils/loadEnv.js" \
   "${staging_directory}/deploy/ec2/backup-release.sh" \
   "${staging_directory}/deploy/ec2/check-api-health.sh" \
   "${staging_directory}/deploy/ec2/configure-app.sh" \

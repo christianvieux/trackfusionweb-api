@@ -11,6 +11,12 @@ const GENERATED_SETTINGS = new Set([
   "POSTGRES_PASSWORD",
 ]);
 
+const OPTIONAL_SETTINGS = new Set([
+  "LOCAL_WEB_BIND_ADDRESS",
+  "LOCAL_BROWSER_HOST",
+  "LOCAL_APP_PORT",
+]);
+
 export function parseMajorVersion(version) {
   const major = Number.parseInt(String(version).replace(/^v/, "").split(".")[0], 10);
   return Number.isInteger(major) ? major : null;
@@ -48,7 +54,15 @@ export function parseEnvironment(text) {
 export function findEnvironmentIssues(exampleText, environmentText) {
   const expected = parseEnvironment(exampleText);
   const current = parseEnvironment(environmentText);
-  const missing = Object.keys(expected).filter((name) => !current[name]?.trim());
+  const missing = Object.keys(expected).filter(
+    (name) =>
+      !OPTIONAL_SETTINGS.has(name) &&
+      !current[name]?.trim() &&
+      !(
+        name === "ALLOWED_BROWSER_ORIGINS" &&
+        current.CORS_ALLOWED_ORIGINS?.trim()
+      ),
+  );
   const placeholders = Object.entries(current)
     .filter(([name, value]) => {
       if (!GENERATED_SETTINGS.has(name) && name !== "DATABASE_URL") return false;

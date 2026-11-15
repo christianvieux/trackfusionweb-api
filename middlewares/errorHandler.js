@@ -1,18 +1,19 @@
 // middlewares/errorHandler.js
+import { logDiagnostic, sendSafeError } from '../utils/apiErrors.js';
+
 export const errorHandler = (err, req, res, next) => {
-  // Log error for debugging
-  console.error('Error:', err);
-
-  // Ensure we're sending a valid HTTP response
   const status = err.status || err.statusCode || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal Server Error'
-    : err.message;
+  const isUnexpected = status >= 500;
+  logDiagnostic(err, {
+    code: isUnexpected ? 'INTERNAL_ERROR' : err.code,
+    referenceId: req.referenceId,
+    context: `${req.method} ${req.path}`,
+  });
 
-  res.status(status).json({
-    error: {
-      status,
-      message
-    }
+  return sendSafeError(req, res, status, {
+    code: isUnexpected ? 'INTERNAL_ERROR' : err.code || 'REQUEST_FAILED',
+    message: isUnexpected
+      ? 'Something went wrong. Please try again.'
+      : err.message || 'The request could not be completed.',
   });
 };

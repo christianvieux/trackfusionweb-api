@@ -8,6 +8,8 @@ beforeEach(() => {
     FRONTEND_URL: "https://www.trackfusionweb.com",
     CORS_ALLOWED_ORIGINS: "https://www.trackfusionweb.com",
   };
+  delete process.env.ALLOWED_BROWSER_ORIGINS;
+  delete process.env.DEV_URLS;
 });
 
 afterAll(() => {
@@ -60,6 +62,26 @@ test("rejects an unlisted browser origin", async () => {
   const [error] = callback.mock.calls[0];
   expect(error).toMatchObject({
     message: "Origin not allowed by CORS",
+    status: 403,
+    code: "CORS_ORIGIN_DENIED",
+  });
+});
+
+test("allows configured LAN origins with custom development ports", async () => {
+  process.env.NODE_ENV = "development";
+  process.env.FRONTEND_URL = "http://localhost:3000";
+  process.env.ALLOWED_BROWSER_ORIGINS =
+    "http://localhost:3001,http://192.168.1.50:3001";
+  const { corsOptions } = await import("./corsOptions.js");
+  const allowedCallback = jest.fn();
+  const rejectedCallback = jest.fn();
+
+  corsOptions.origin("http://192.168.1.50:3001", allowedCallback);
+  corsOptions.origin("http://192.168.1.51:3001", rejectedCallback);
+
+  expect(allowedCallback).toHaveBeenCalledWith(null, true);
+  const [error] = rejectedCallback.mock.calls[0];
+  expect(error).toMatchObject({
     status: 403,
     code: "CORS_ORIGIN_DENIED",
   });

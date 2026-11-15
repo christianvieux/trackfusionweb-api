@@ -3,8 +3,6 @@ import os from "os";
 import path from "path";
 import sharp from "sharp";
 
-jest.mock("mime", () => ({ getType: jest.fn() }));
-
 import {
   imageService,
   TRACK_ARTWORK_MAX_DIMENSION,
@@ -65,4 +63,44 @@ test("does not enlarge artwork that is already within the bound", async () => {
 
   expect(metadata.width).toBe(640);
   expect(metadata.height).toBe(480);
+});
+
+test.each([
+  [64, 64, true],
+  [63, 64, false],
+])("validates the artwork minimum at %sx%s", async (width, height, isValid) => {
+  const inputPath = path.join(tempDirectory, `boundary-${width}-${height}.png`);
+  await sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 30, g: 60, b: 90 },
+    },
+  }).png().toFile(inputPath);
+
+  const result = await imageService.validateImage(inputPath);
+  expect(result.isValid).toBe(isValid);
+  if (!isValid) expect(result.error).toMatch(/dimensions too small/i);
+});
+
+test("rejects decoded pixel counts above the configured processing ceiling", async () => {
+  const inputPath = path.join(tempDirectory, "pixel-limit.png");
+  await sharp({
+    create: {
+      width: 100,
+      height: 100,
+      channels: 3,
+      background: { r: 20, g: 40, b: 60 },
+    },
+  }).png().toFile(inputPath);
+
+  const result = await imageService.validateImage(inputPath, {
+    minWidth: 1,
+    minHeight: 1,
+    maxDimension: 1000,
+    maxPixels: 9999,
+  });
+  expect(result).toEqual(expect.objectContaining({ isValid: false }));
+  expect(result.error).toMatch(/pixel limit/i);
 });

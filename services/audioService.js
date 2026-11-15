@@ -1,21 +1,31 @@
   // utils/audioService.js
   import * as mm from 'music-metadata';
-  import mime from 'mime';
   import path from 'path';
   import fs from 'fs';
-import { stat } from 'fs/promises';
+import { normalizeAudioType } from '../utils/mediaTypes.js';
+import { getUploadConstraints } from '../utils/uploadConstraints.js';
 
-  // Define valid sound types according to the database enum
-  const VALID_SOUND_TYPES = [
+  // Keep browser MIME aliases and worker extensions on one canonical set.
+  const CONTAINER_TYPES = {
+    aac: 'aac',
+    adts: 'aac',
+    mpeg: 'mp3',
+    'mpeg-4': 'm4a',
+    mp4: 'm4a',
+    ogg: 'ogg',
+    wave: 'wav',
+    wav: 'wav',
+  };
+
+  function validSoundTypes() {
+    return [
       ...new Set(
-          (process.env.ALLOWED_AUDIO_TYPES?.split(',')
-              .map(type => type.replace('audio/', ''))
-              .map(type => type === 'mpeg' ? 'mp3' : type) || 
-          ['mp3', 'wav', 'ogg'])
+        getUploadConstraints().audio.allowedTypes
+          .map(normalizeAudioType)
+          .filter(Boolean),
       ),
-  ];
-  const MAX_DURATION = parseInt(process.env.AUDIO_MAX_LENGTH || 900); // 15 minutes in seconds
-const MAX_FILE_SIZE = parseInt(process.env.AUDIO_MAX_FILE_SIZE || 300) * 1024 * 1024; // Convert MB to bytes
+    ];
+  }
 
   export class AudioService {
     async analyzeFile(filePath) {
@@ -45,30 +55,35 @@ const MAX_FILE_SIZE = parseInt(process.env.AUDIO_MAX_FILE_SIZE || 300) * 1024 * 
       try {
         // Check file size first
         const stats = await fs.promises.stat(filePath);
-        if (stats.size > MAX_FILE_SIZE) {
+        const constraints = getUploadConstraints().audio;
+        if (stats.size > constraints.maxBytes) {
           return {
             isValid: false,
-            error: `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`
+            error: `Audio file exceeds the ${constraints.maxBytes / (1024 * 1024)} MiB limit`
           };
         }
-    
-        // Get and validate file type
-        const fileType = this.getFileType(filePath);
-        if (fileType === 'other') {
-          return {
-            isValid: false,
-            error: `Unsupported audio format. Allowed formats: ${VALID_SOUND_TYPES.join(', ')}`
-          };
-        }
-    
+
         // Analyze file metadata
         const metadata = await this.analyzeFile(filePath);
-        
-        // Check duration
-        if (metadata.duration > MAX_DURATION) {
+        const detectedType = this.getDetectedFileType(metadata);
+        if (!validSoundTypes().includes(detectedType)) {
+          if (!detectedType || detectedType === 'unknown') {
+            return {
+              isValid: false,
+              error: 'Invalid audio file structure',
+            };
+          }
           return {
             isValid: false,
-            error: `Audio duration exceeds maximum allowed length of ${MAX_DURATION / 60} minutes`
+            error: `Unsupported audio format. Allowed formats: ${validSoundTypes().join(', ')}`,
+          };
+        }
+        
+        // Check duration
+        if (metadata.duration > constraints.maxDurationSeconds) {
+          return {
+            isValid: false,
+            error: `Audio duration exceeds maximum allowed length of ${constraints.maxDurationSeconds / 60} minutes`
           };
         }
     
@@ -82,7 +97,7 @@ const MAX_FILE_SIZE = parseInt(process.env.AUDIO_MAX_FILE_SIZE || 300) * 1024 * 
     
         return {
           isValid: true,
-          metadata: this.normalizeMetadata(metadata, filePath)
+          metadata: this.normalizeMetadata(metadata, filePath, detectedType)
         };
       } catch (error) {
         return {
@@ -93,30 +108,24 @@ const MAX_FILE_SIZE = parseInt(process.env.AUDIO_MAX_FILE_SIZE || 300) * 1024 * 
     }
 
     getFileType(filePath) {
-      const extension = path.extname(filePath).toLowerCase().substring(1);
-      
-      // Direct extension mapping
-      if (VALID_SOUND_TYPES.includes(extension)) {
-        return extension;
-      }
+      const extension = normalizeAudioType(
+        path.extname(filePath).toLowerCase().substring(1)
+      );
+      return validSoundTypes().includes(extension) ? extension : 'other';
+    }
 
-      // Use MIME type as fallback
-      const mimeType = mime.getType(filePath);
-      const format = mimeType?.split('/')[1];
+    getDetectedFileType(metadata) {
+      const container = String(metadata?.format || '').trim().toLowerCase();
+      if (container.includes('m4a') || container.includes('mp4') || container.includes('isom')) return 'm4a';
+      if (container.includes('adts') || container.includes('aac')) return 'aac';
+      if (container.includes('mpeg')) return 'mp3';
+      if (container.includes('wave') || container === 'wav') return 'wav';
+      if (container.includes('ogg')) return 'ogg';
+      return CONTAINER_TYPES[container] || normalizeAudioType(container);
+    }
 
-      if (format) {
-        // Convert mpeg to mp3 to match our standardized format
-        const normalizedFormat = format === 'mpeg' ? 'mp3' : format;
-        
-        // Check if the normalized format is in our valid types
-        if (VALID_SOUND_TYPES.includes(normalizedFormat)) {
-          return normalizedFormat;
-        }
-      }
-      return 'other';  }
-
-    normalizeMetadata(metadata, filePath) {
-      const soundType = this.getFileType(filePath);
+    normalizeMetadata(metadata, filePath, detectedType = null) {
+      const soundType = detectedType || this.getDetectedFileType(metadata) || this.getFileType(filePath);
 
       return {
         duration: metadata.duration,

@@ -19,6 +19,7 @@
     "storage:init": "node scripts/initStorage.js",
     "storage:verify": "node scripts/verifyStorage.js",
     "registration:verify": "node scripts/verifyLocalRegistration.js",
+    "feedback:review": "node scripts/reviewFeedback.js",
     "aws:verify": "node scripts/verifyS3Access.js",
     "smoke": "node scripts/smokeApi.js",
     "test": "jest"

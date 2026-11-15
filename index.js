@@ -29,6 +29,7 @@ async function startServer() {
   const { corsOptions } = await import("./middlewares/corsOptions.js");
   const { default: sessionConfig } = await import("./middlewares/sessionConfig.js");
   const { apiLimiter } = await import("./middlewares/limiterConfig.js");
+  const { requestContext } = await import("./middlewares/requestContext.js");
   const { default: authRoutes } = await import("./routes/authRoutes.js");
   const { default: userRoutes } = await import("./routes/userRoutes.js");
   const { default: trackRoutes } = await import("./routes/trackRoutes.js");
@@ -38,6 +39,7 @@ async function startServer() {
   const { default: publicRoutes } = await import("./routes/publicRoutes.js");
   const { default: awsRoutes } = await import("./routes/awsRoutes.js");
   const { default: uploadRoutes } = await import("./routes/uploadRoutes.js");
+  const { default: feedbackRoutes } = await import("./routes/feedbackRoutes.js");
   const { audioQueue, cleanupQueue, audioAnalysisQueue } = await import("./queue/audioQueue.js");
   const { trackUploadQueue, profilePictureUploadQueue } = await import("./queue/uploadQueue.js");
   const { errorHandler } = await import("./middlewares/errorHandler.js");
@@ -62,6 +64,7 @@ async function startServer() {
     }),
   );
   app.use(cors(corsOptions));
+  app.use(requestContext);
   app.use(apiLimiter);
   app.use(cookieParser());
   app.use(session({
@@ -83,6 +86,7 @@ async function startServer() {
   app.use("/audio", audioRoutes);
   app.use("/aws", awsRoutes);
   app.use("/upload", uploadRoutes);
+  app.use("/feedback", feedbackRoutes);
 
   app.get("/health", (req, res) => {
     res.status(200).json({ status: "healthy" });

@@ -1,40 +1,11 @@
 // corsOptions.js
 
-import dotenv from 'dotenv';
-dotenv.config();
+import {
+  parseBrowserOrigin,
+  resolveAllowedBrowserOrigins,
+} from '../utils/browserOrigins.js';
 
-// Helper function to normalize URLs
-const normalizeUrl = (url) => {
-  if (!url) return '';
-  
-  // Add https:// if no protocol specified
-  const withProtocol = url.includes('://')
-  ? url
-  : url.includes('localhost')
-    ? `http://${url}`
-    : `https://${url}`;
-  // Remove trailing slashes and convert to lowercase
-  return withProtocol.toLowerCase().replace(/\/+$/, '');
-};
-
-const ENV = {
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
-  DEV_URLS: process.env.DEV_URLS
-  ?.split(',')
-  .map((url) => normalizeUrl(url.trim()))
-  .filter(Boolean) || [],
-  CORS_ALLOWED_ORIGINS: process.env.CORS_ALLOWED_ORIGINS
-    ?.split(',')
-    .map((url) => normalizeUrl(url.trim()))
-    .filter(Boolean) || [],
-};
-
-// Generate allowed origins
-const allowedOrigins = [...new Set([
-  normalizeUrl(ENV.FRONTEND_URL),
-  ...ENV.CORS_ALLOWED_ORIGINS,
-  ...(process.env.NODE_ENV === 'development' ? ENV.DEV_URLS : []),
-].filter(Boolean))];
+const allowedOrigins = resolveAllowedBrowserOrigins();
 
 console.log('Allowed Origins:', allowedOrigins);
 
@@ -45,8 +16,13 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    const normalizedOrigin = normalizeUrl(origin);
-    
+    let normalizedOrigin;
+    try {
+      normalizedOrigin = parseBrowserOrigin('Origin', origin).origin;
+    } catch {
+      normalizedOrigin = origin;
+    }
+
     if (allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {

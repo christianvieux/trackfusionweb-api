@@ -15,6 +15,7 @@ import { promises as fsPromises } from "fs";
 import os from "os";
 import path from "path";
 import { Readable } from "stream";
+import { resolveStorageBrowserOrigins } from "../utils/browserOrigins.js";
 
 const FileConfig = {
   TRACK: {
@@ -284,10 +285,7 @@ export class S3Service {
       await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
     }
 
-    const allowedOrigins = (this.environment.STORAGE_CORS_ALLOWED_ORIGINS || "")
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean);
+    const allowedOrigins = resolveStorageBrowserOrigins(this.environment);
     if (allowedOrigins.length > 0) {
       await this.client.send(
         new PutBucketCorsCommand({

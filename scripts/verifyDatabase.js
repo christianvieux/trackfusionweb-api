@@ -96,6 +96,17 @@ const expectedColumns = {
     "created_at",
     "expires_at",
   ],
+  feedback_reports: [
+    "id",
+    "user_id",
+    "category",
+    "description",
+    "source",
+    "error_code",
+    "reference_id",
+    "page_path",
+    "created_at",
+  ],
 };
 
 const expectedEnumLabels = {

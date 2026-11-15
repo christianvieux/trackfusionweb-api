@@ -61,6 +61,29 @@ test("returns a parsed port for valid configuration", () => {
   expect(validateEnvironment()).toEqual({ port: 8081 });
 });
 
+test("accepts the descriptive browser-origin setting without legacy aliases", () => {
+  process.env.ALLOWED_BROWSER_ORIGINS =
+    "http://localhost:3001,http://192.168.1.50:3001";
+  delete process.env.CORS_ALLOWED_ORIGINS;
+
+  expect(validateEnvironment()).toEqual({ port: 8081 });
+});
+
+test("supports an explicit all-interface bind without changing the default", () => {
+  process.env.HOST = "0.0.0.0";
+
+  expect(validateEnvironment()).toEqual({ port: 8081 });
+  expect(validEnvironment.HOST).toBe("127.0.0.1");
+});
+
+test("rejects arbitrary host binding values", () => {
+  process.env.HOST = "192.168.1.50";
+
+  expect(() => validateEnvironment()).toThrow(
+    "HOST must be 127.0.0.1, 0.0.0.0, localhost, or ::",
+  );
+});
+
 test("reports missing required variables together", () => {
   delete process.env.DATABASE_URL;
   delete process.env.REDIS_URL;
@@ -157,6 +180,23 @@ test("requires exact CORS origins without paths", () => {
 
   expect(() => validateEnvironment()).toThrow(
     "CORS_ALLOWED_ORIGINS must contain exact HTTP(S) origins without paths",
+  );
+});
+
+test("requires exact configured browser origins without paths", () => {
+  process.env.ALLOWED_BROWSER_ORIGINS = "http://localhost:3001/app";
+
+  expect(() => validateEnvironment()).toThrow(
+    "ALLOWED_BROWSER_ORIGINS must contain exact HTTP(S) origins without paths",
+  );
+});
+
+test("applies production restrictions to the preferred browser allowlist", () => {
+  configureValidProductionEnvironment();
+  process.env.ALLOWED_BROWSER_ORIGINS = "http://www.trackfusionweb.com";
+
+  expect(() => validateEnvironment()).toThrow(
+    "ALLOWED_BROWSER_ORIGINS must use https: in production",
   );
 });
 

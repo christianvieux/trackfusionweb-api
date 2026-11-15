@@ -1,20 +1,20 @@
 // utils/imageService.js
 import sharp from 'sharp';
-import mime from 'mime';
-import path from 'path';
 import fs from 'fs/promises';
-import { stat } from 'fs';
+import { getUploadConstraints } from '../utils/uploadConstraints.js';
 
-// Parse environment variables
-const MAX_FILE_SIZE = parseInt(process.env.IMAGE_MAX_FILE_SIZE || 50) * 1024 * 1024; // Convert MB to bytes
-const VALID_IMAGE_TYPES = new Set(
-  (process.env.ALLOWED_IMAGE_TYPES?.split(',')
-    .map(type => type.trim())
-    .map(type => type.replace('image/', '')) ||
-  ['jpeg', 'jpg', 'png', 'heic', 'heif'])
-);
+const FORMAT_ALIASES = { jpg: 'jpeg', heic: 'heif' };
 export const TRACK_ARTWORK_MAX_DIMENSION = 1200;
 export const TRACK_ARTWORK_QUALITY = 82;
+
+function normalizedAllowedFormats() {
+  return new Set(
+    getUploadConstraints().image.allowedTypes.map((type) => {
+      const format = type.replace(/^image\//, '');
+      return FORMAT_ALIASES[format] || format;
+    }),
+  );
+}
 
 export class ImageService {
   async analyzeFile(filePath) {
@@ -22,12 +22,14 @@ export class ImageService {
       const stats = await fs.stat(filePath);
       
       // Check file size first
-      console.log(stats.size, MAX_FILE_SIZE);
-      if (stats.size > MAX_FILE_SIZE) {
-        throw new Error(`File size exceeds maximum allowed size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+      const constraints = getUploadConstraints().image;
+      if (stats.size > constraints.maxBytes) {
+        throw new Error(`Image file exceeds the ${constraints.maxBytes / (1024 * 1024)} MiB limit`);
       }
 
-      const metadata = await sharp(filePath).metadata();
+      const metadata = await sharp(filePath, {
+        limitInputPixels: constraints.maxPixels,
+      }).metadata();
       
       if (!metadata) {
         throw new Error('Invalid image file format');
@@ -51,51 +53,39 @@ export class ImageService {
     }
   }
 
-  getFileType(filePath) {
-    const extension = path.extname(filePath).toLowerCase().substring(1);
-    
-    // Direct extension mapping
-    if (VALID_IMAGE_TYPES.has(extension)) {
-      return extension;
-    }
-
-    // Use MIME type as fallback
-    const mimeType = mime.getType(filePath);
-    const format = mimeType?.split('/')[1];
-
-    if (VALID_IMAGE_TYPES.has(format)) {
-      return format;
-    }
-
-    throw new Error('Unsupported image format');
-  }
-
   async validateImage(filePath, options = {}) {
+    const constraints = getUploadConstraints().image;
     const {
-      minWidth = 200,
-      minHeight = 200,
-      maxWidth = 5000,
-      maxHeight = 5000,
+      minWidth = constraints.minWidth,
+      minHeight = constraints.minHeight,
+      maxDimension = constraints.maxDimension,
+      maxPixels = constraints.maxPixels,
       aspectRatio = null
     } = options;
 
     try {
-      // Validate file type first
-      const fileType = this.getFileType(filePath);
-      if (!VALID_IMAGE_TYPES.has(fileType)) {
-        throw new Error('Invalid image format');
+      const metadata = await this.analyzeFile(filePath);
+      const fileType = FORMAT_ALIASES[metadata.format] || metadata.format;
+      if (!normalizedAllowedFormats().has(fileType)) {
+        throw new Error('Unsupported image format');
       }
 
-      // Get image metadata
-      const metadata = await this.analyzeFile(filePath);
+      if (!metadata.width || !metadata.height) {
+        throw new Error('Invalid image dimensions');
+      }
 
       // Validate dimensions
       if (metadata.width < minWidth || metadata.height < minHeight) {
         throw new Error(`Image dimensions too small. Minimum size is ${minWidth}x${minHeight} pixels`);
       }
 
-      if (metadata.width > maxWidth || metadata.height > maxHeight) {
-        throw new Error(`Image dimensions too large. Maximum size is ${maxWidth}x${maxHeight} pixels`);
+      const decodedPixels = metadata.width * metadata.height;
+      if (
+        metadata.width > maxDimension ||
+        metadata.height > maxDimension ||
+        decodedPixels > maxPixels
+      ) {
+        throw new Error(`Image dimensions exceed the safe ${maxPixels} pixel limit`);
       }
 
       // Validate aspect ratio if specified
@@ -130,7 +120,9 @@ export class ImageService {
     } = options;
 
     try {
-      let image = sharp(filePath);
+      let image = sharp(filePath, {
+        limitInputPixels: getUploadConstraints().image.maxPixels,
+      });
       const metadata = await image.metadata();
 
       // Resize image while maintaining aspect ratio
@@ -187,7 +179,9 @@ export class ImageService {
 
   async processForTrackArtwork(filePath, outputPath) {
     try {
-      const output = await sharp(filePath)
+      const output = await sharp(filePath, {
+        limitInputPixels: getUploadConstraints().image.maxPixels,
+      })
         .rotate()
         .resize(TRACK_ARTWORK_MAX_DIMENSION, TRACK_ARTWORK_MAX_DIMENSION, {
           fit: "inside",

@@ -18,6 +18,8 @@ import {
 import { authorizeTrackUrl } from "../controllers/trackController.js";
 import { authenticateToken } from "../middlewares/authMiddleware.js";
 import { validateTrackPagination } from "../utils/trackPagination.js";
+import { updateTrackSchema } from "../utils/trackUploadRequest.js";
+import { authorizeTrackArtwork } from "../services/mediaUrlService.js";
 
 const router = express.Router();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -170,7 +172,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Track not found or access denied" });
     }
 
-    res.json(track);
+    res.json(await authorizeTrackArtwork(track));
   } catch (err) {
     console.error("Error fetching track:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -180,22 +182,8 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", authenticateToken, async (req, res) => {
   const trackId = req.params.id;
   const userId = req.user.id;
-  const { name, description, is_private } = req.body;
-
-  // Validate input
-  const errors = [];
-  if (!name) {
-    errors.push("Name is required");
-  }
-  if (!description) {
-    errors.push("Description is required");
-  }
-  if (typeof is_private === "undefined") {
-    errors.push("Privacy status (is_private) is required");
-  }
-  if (errors.length > 0) {
-    return res.status(400).json({ error: errors.join(", ") });
-  }
+  const { error, value } = updateTrackSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
 
   try {
     // Fetch the track to ensure it exists and belongs to the user
@@ -207,11 +195,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
     }
 
     // Update the track
-    const updatedTrack = await updateTrack(trackId, {
-      name,
-      description,
-      is_private,
-    });
+    const updatedTrack = await updateTrack(trackId, value);
     res.json(updatedTrack);
     console.log(
       `User ${userId} updated track: ${trackId} with data: ${JSON.stringify(

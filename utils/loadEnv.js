@@ -1,10 +1,14 @@
+import {
+  browserOriginSettingName,
+  parseBrowserOriginList,
+} from "./browserOrigins.js";
+
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   "NODE_ENV",
   "HOST",
   "PORT",
   "REQUEST_BODY_LIMIT",
   "FRONTEND_URL",
-  "CORS_ALLOWED_ORIGINS",
   "SESSION_SECRET",
   "JWT_SECRET",
   "DATABASE_URL",
@@ -48,28 +52,6 @@ function validateUrl(name, allowedProtocols) {
   return value;
 }
 
-function validateOrigin(name, origin) {
-  let value;
-  try {
-    value = new URL(origin);
-  } catch {
-    throw new Error(`${name} must contain valid HTTP(S) origins`);
-  }
-
-  if (
-    !["http:", "https:"].includes(value.protocol) ||
-    value.username ||
-    value.password ||
-    value.pathname !== "/" ||
-    value.search ||
-    value.hash
-  ) {
-    throw new Error(`${name} must contain exact HTTP(S) origins without paths`);
-  }
-
-  return value;
-}
-
 export function validateEnvironment() {
   const missing = REQUIRED_ENVIRONMENT_VARIABLES.filter(
     (name) => !process.env[name]?.trim(),
@@ -78,6 +60,15 @@ export function validateEnvironment() {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}`,
+    );
+  }
+
+  if (
+    !process.env.ALLOWED_BROWSER_ORIGINS?.trim() &&
+    !process.env.CORS_ALLOWED_ORIGINS?.trim()
+  ) {
+    throw new Error(
+      "Missing required environment variable: ALLOWED_BROWSER_ORIGINS (or legacy CORS_ALLOWED_ORIGINS)",
     );
   }
 
@@ -149,8 +140,20 @@ export function validateEnvironment() {
     validateUrl("STORAGE_PUBLIC_ENDPOINT", ["http:", "https:"]);
   }
 
-  const corsOrigins = process.env.CORS_ALLOWED_ORIGINS.split(",").map((origin) =>
-    validateOrigin("CORS_ALLOWED_ORIGINS", origin.trim()),
+  for (const name of [
+    "ALLOWED_BROWSER_ORIGINS",
+    "CORS_ALLOWED_ORIGINS",
+    "DEV_URLS",
+    "STORAGE_CORS_ALLOWED_ORIGINS",
+  ]) {
+    if (process.env[name]?.trim()) {
+      parseBrowserOriginList(name, process.env[name]);
+    }
+  }
+  const browserOriginsName = browserOriginSettingName(process.env);
+  const browserOrigins = parseBrowserOriginList(
+    browserOriginsName,
+    process.env[browserOriginsName],
   );
 
   const emailDeliveryEnabled = process.env.EMAIL_DELIVERY_ENABLED === "true";
@@ -235,14 +238,14 @@ export function validateEnvironment() {
         "FRONTEND_URL must be an exact HTTPS origin without credentials or a path in production",
       );
     }
-    if (corsOrigins.some((origin) => origin.protocol !== "https:")) {
-      throw new Error("CORS_ALLOWED_ORIGINS must use https: in production");
+    if (browserOrigins.some((origin) => origin.protocol !== "https:")) {
+      throw new Error(`${browserOriginsName} must use https: in production`);
     }
     if (
-      !corsOrigins.some((origin) => origin.origin === frontendUrl.origin)
+      !browserOrigins.some((origin) => origin.origin === frontendUrl.origin)
     ) {
       throw new Error(
-        "CORS_ALLOWED_ORIGINS must include FRONTEND_URL in production",
+        `${browserOriginsName} must include FRONTEND_URL in production`,
       );
     }
     if (process.env.COOKIE_DOMAIN?.trim()) {

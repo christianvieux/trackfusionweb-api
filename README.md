@@ -106,6 +106,13 @@ For audio features, create a Python 3.12 virtual environment, install
 `requirements.txt`, and set `PYTHON_EXECUTABLE` to its Python binary. On Windows
 that is normally `venv\Scripts\python.exe`; on macOS/Linux it is normally
 `venv/bin/python`. Install FFmpeg separately and make it available on `PATH`.
+Each Git worktree needs its own virtual environment because `venv/` is ignored
+and is not shared by Git:
+
+```bash
+python3.12 -m venv venv
+venv/bin/python -m pip install -r requirements.txt
+```
 
 SMTP can point to any development inbox. To run without email delivery, set
 `EMAIL_PROVIDER=disabled`, `EMAIL_DELIVERY_ENABLED=false`, and both development
@@ -149,7 +156,7 @@ The addresses in this table assume `.env` still has its example values.
 | `http://127.0.0.1:8081/tracks/public` | Returns public tracks as JSON | `LOCAL_API_PORT` |
 | `127.0.0.1:5432` | PostgreSQL for native API development | `LOCAL_POSTGRES_PORT` and `DATABASE_URL` |
 | `127.0.0.1:6379` | Redis for native API development | `LOCAL_REDIS_PORT` and `REDIS_URL` |
-| `http://127.0.0.1:9000` | Serves signed local audio and image URLs | `LOCAL_STORAGE_PORT` |
+| `http://localhost:9000` | Serves signed local audio and image URLs | `LOCAL_STORAGE_PORT` |
 | `http://127.0.0.1:8025` | Shows local verification and password-reset emails | `LOCAL_MAILPIT_UI_PORT` |
 
 Local emails are captured by Mailpit; they are not sent to a real address.
@@ -158,13 +165,45 @@ Keep these settings aligned when either project uses a custom port or URL:
 
 | Connection | App setting | API setting |
 | --- | --- | --- |
-| App calls the API | `NEXT_PUBLIC_API_URL` | `LOCAL_API_PORT` |
-| API accepts the App | `NEXT_PUBLIC_SITE_URL` and the App's actual browser address | `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, and `DEV_URLS` |
+| Browser calls the API | `NEXT_PUBLIC_API_URL` | `LOCAL_API_PORT` |
+| API accepts the App | `ALLOWED_BROWSER_ORIGINS` | `ALLOWED_BROWSER_ORIGINS` |
 | App displays local media | `NEXT_IMAGE_REMOTE_ORIGINS` | `LOCAL_STORAGE_PORT` |
 
 For example, if `LOCAL_API_PORT=8181`, set
-`NEXT_PUBLIC_API_URL=http://localhost:8181` in the App. If you keep the
-defaults, no coordination is needed.
+`NEXT_PUBLIC_API_URL=http://localhost:8181` in the App. If you keep the defaults,
+no coordination is needed.
+
+### Test from other devices on the LAN
+
+The browser communicates directly with the API in development, matching the
+production architecture. PostgreSQL, Redis, Mailpit, and SMTP remain
+loopback-only. Local storage also remains a direct browser destination.
+
+On a trusted private network, find the development computer's reachable LAN
+address and set these API values, replacing the example address and port:
+
+```dotenv
+LOCAL_APP_PORT=3000
+LOCAL_BROWSER_HOST=192.168.1.50
+LOCAL_WEB_BIND_ADDRESS=0.0.0.0
+ALLOWED_BROWSER_ORIGINS=http://localhost:3000,http://192.168.1.50:3000
+```
+
+For a native API, keep `STORAGE_ENDPOINT` on loopback, then set `HOST=0.0.0.0`,
+`FRONTEND_URL=http://192.168.1.50:3000`, and
+`STORAGE_PUBLIC_ENDPOINT=http://192.168.1.50:9000`. The App keeps
+`NEXT_PUBLIC_API_URL=http://localhost:8081`; in development it substitutes the
+hostname used to open the App and preserves port `8081`.
+
+Only the App, API, and direct storage ports need LAN reachability. Restrict
+ports `3000`, `8081`, and `9000` to the trusted local subnet; do not expose
+PostgreSQL, Redis, Mailpit, or SMTP. WSL 2 NAT mode may require host forwarding
+for those three web-facing ports.
+
+Changing `LOCAL_WEB_BIND_ADDRESS` requires recreating the existing Compose API
+and storage services before physical-device testing. Return it to `127.0.0.1`
+after testing. Origin authorization alone does not expose a service to the
+network.
 
 ## Common commands
 
@@ -177,6 +216,8 @@ Run these commands from the API folder.
 | `npm run dev` | Checks native prerequisites and starts the API with Nodemon |
 | `npm run dev:host` | Compatibility alias for `npm run dev` |
 | `npm run dev:docker` | Starts the complete Docker development environment |
+| `npm run db:init` | Applies the base schema and pending versioned migrations |
+| `npm run feedback:review -- 25` | Prints up to 25 recent feedback reports as JSON using local owner database access |
 | `docker compose up -d` | Starts the existing local setup in the background |
 | `docker compose up -d --build` | Rebuilds the API and starts it; use this after code or package changes |
 | `docker compose ps` | Shows which services are running and whether they are healthy |
@@ -324,6 +365,11 @@ protected upload routes from disagreeing when one redundant cookie is missing.
 
 Uploads and audio analysis run in the background. The API returns a job ID that
 the App uses to check progress.
+
+Track uploads accept audio up to 100 MiB and optional artwork up to 8 MiB.
+Artwork must be at least 64 × 64 pixels and is rejected above the worker's
+40-megapixel decode ceiling. The API checks trusted object metadata again before
+queueing and processing; deterministic validation failures are not retried.
 
 ## Tests and project checks
 
@@ -543,7 +589,7 @@ deploy by editing files under `/opt/trackfusionweb/api`.
 | Direct health check fails | API logs, PostgreSQL, Redis, disk space, and memory |
 | Direct health works but the public URL fails | Nginx status, Nginx error log, TLS, DNS, and AWS network rules |
 | Public URL returns `502 Bad Gateway` | API service status, direct health, then Nginx logs |
-| Browser reports a CORS error | Confirm the App origin matches `FRONTEND_URL` and `CORS_ALLOWED_ORIGINS` |
+| Browser reports a CORS error | Confirm the App's exact origin appears in the configured browser allowlist (`ALLOWED_BROWSER_ORIGINS`, or production's legacy `CORS_ALLOWED_ORIGINS`) |
 | A deployment fails | Read the GitHub Actions deployment log; the deployment workflow attempts automatic rollback after a failed health check |
 
 ### Important production paths

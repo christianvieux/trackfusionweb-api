@@ -5,6 +5,14 @@ import { authorizeTrackArtwork, authorizeTrackArtworkList } from '../services/me
 import { getTrackCollectionPage } from '../services/trackCollectionService.js';
 const tokenCache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
 
+function toMetadataArray(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 
 // Update track on database
 export async function updateTrackOnDatabase(trackId, properties) {
@@ -39,8 +47,8 @@ export async function uploadTrackToDatabase(trackData) {
     trackData.description,
     trackData.is_private,
     trackData.category,
-    trackData.genre.split(','),
-    trackData.mood.split(','),
+    toMetadataArray(trackData.genre),
+    toMetadataArray(trackData.mood),
     trackData["length"],
     trackData.bpm,
     trackData.image_url,

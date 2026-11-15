@@ -81,6 +81,29 @@ test("reports stale environments without changing them", async () => {
   await expect(readFile(environmentPath, "utf8")).resolves.toBe(stale);
 });
 
+test("does not require optional LAN overrides for localhost development", () => {
+  const localhostExample = `${example}LOCAL_WEB_BIND_ADDRESS=127.0.0.1\nLOCAL_BROWSER_HOST=localhost\nLOCAL_APP_PORT=3000\n`;
+
+  const issues = findEnvironmentIssues(localhostExample, example);
+
+  expect(issues.missing).not.toContain("LOCAL_WEB_BIND_ADDRESS");
+  expect(issues.missing).not.toContain("LOCAL_BROWSER_HOST");
+  expect(issues.missing).not.toContain("LOCAL_APP_PORT");
+});
+
+test("accepts the legacy CORS allowlist in an existing environment", () => {
+  const current = example
+    .replace(
+      "EMAIL_PROVIDER=smtp\n",
+      "EMAIL_PROVIDER=smtp\nCORS_ALLOWED_ORIGINS=http://localhost:3000\n",
+    );
+  const updatedExample = `${example}ALLOWED_BROWSER_ORIGINS=http://localhost:3000\n`;
+
+  const issues = findEnvironmentIssues(updatedExample, current);
+
+  expect(issues.missing).not.toContain("ALLOWED_BROWSER_ORIGINS");
+});
+
 test("does not expose environment values while describing issues", () => {
   const issues = findEnvironmentIssues(example, "NODE_ENV=development\n");
   expect(issues.missing).toContain("SESSION_SECRET");

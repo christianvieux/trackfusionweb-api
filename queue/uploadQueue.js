@@ -8,6 +8,9 @@ import { deleteTrackFromDatabase, uploadTrackToDatabase, updateTrackOnDatabase }
 import { updateUserOnDatabase, getUserById } from '../controllers/userController.js';
 import { cleanupFiles } from '../utils/cleanup.js';
 import { isFinalJobAttempt } from './uploadJobPolicy.js';
+import { getUploadConstraints } from '../utils/uploadConstraints.js';
+import { safeUploadFailure } from '../utils/trackUploadRequest.js';
+import { logDiagnostic } from '../utils/apiErrors.js';
 
 
 const trackUploadQueue = new Queue('file-processing', process.env.REDIS_URL);
@@ -21,6 +24,7 @@ trackUploadQueue.process("track", async (job) => {
   let finalizedCover;
   let processedCoverPath;
   let completed = false;
+  let shouldCleanupStaging = false;
   const {
     userId,
     trackUrl,
@@ -33,9 +37,26 @@ trackUploadQueue.process("track", async (job) => {
     genre = [],
     mood = [],
     bpm,
+    referenceId,
   } = job.data;
 
   try {
+    const constraints = getUploadConstraints();
+    const [trackMetadata, imageMetadata] = await Promise.all([
+      s3Service.getMetadata(trackUrl.key),
+      imageUrl ? s3Service.getMetadata(imageUrl.key) : null,
+    ]);
+    if (!trackMetadata.exists) throw new Error('Upload file not found');
+    if (!trackMetadata.contentLength) throw new Error('Invalid audio file structure: file is empty');
+    if (trackMetadata.contentLength > constraints.audio.maxBytes) {
+      throw new Error(`Audio file exceeds the ${constraints.audio.maxBytes / (1024 * 1024)} MiB limit`);
+    }
+    if (imageUrl && !imageMetadata?.exists) throw new Error('Upload image file not found');
+    if (imageMetadata && !imageMetadata.contentLength) throw new Error('Invalid image file: file is empty');
+    if (imageMetadata?.contentLength > constraints.image.maxBytes) {
+      throw new Error(`Image file exceeds the ${constraints.image.maxBytes / (1024 * 1024)} MiB limit`);
+    }
+
     // Download track file from S3
     job.progress("Downloading track file...");
     const trackDownloadResult = await s3Service.downloadToTemp(trackUrl.key);
@@ -144,6 +165,13 @@ trackUploadQueue.process("track", async (job) => {
         : null,
     };
   } catch (error) {
+    const failure = safeUploadFailure(error.message);
+    shouldCleanupStaging = failure.permanent;
+    if (failure.permanent) job.discard();
+    await job.update({
+      ...job.data,
+      failure: { code: failure.code, error: failure.error },
+    }).catch(() => {});
     if (uploadedTrack) {
       await deleteTrackFromDatabase(uploadedTrack.id).catch(() => {});
     }
@@ -151,14 +179,19 @@ trackUploadQueue.process("track", async (job) => {
       finalizedTrack?.key ? s3Service.deleteFile(finalizedTrack.key) : null,
       finalizedCover?.key ? s3Service.deleteFile(finalizedCover.key) : null,
     ]);
-    console.error(`Job ${job.id} failed:`, error);
+    logDiagnostic(error, {
+      code: failure.code,
+      referenceId,
+      context: 'track upload worker',
+      jobId: job.id,
+    });
     throw error; // Propagate error to trigger job failure
   } finally {
     // Cleanup temp files
     await cleanupFiles(tempFiles);
     // Preserve staging objects for intermediate attempts. Delete them only
     // after success or after Bull has exhausted the configured retries.
-    if (completed || isFinalJobAttempt(job)) {
+    if (completed || shouldCleanupStaging || isFinalJobAttempt(job)) {
       await Promise.allSettled([
         trackUrl ? s3Service.deleteFile(trackUrl.key) : null,
         imageUrl ? s3Service.deleteFile(imageUrl.key) : null,
@@ -168,12 +201,21 @@ trackUploadQueue.process("track", async (job) => {
 });
 
 profilePictureUploadQueue.process("profile-picture", async (job) => {
-  const { userId, imageUrl } = job.data;
+  const { userId, imageUrl, referenceId } = job.data;
   const tempFiles = [];
   let finalizedImage;
   let completed = false;
+  let shouldCleanupStaging = false;
 
   try {
+    const constraints = getUploadConstraints().image;
+    const metadata = await s3Service.getMetadata(imageUrl.key);
+    if (!metadata.exists) throw new Error('Upload image file not found');
+    if (!metadata.contentLength) throw new Error('Invalid image file: file is empty');
+    if (metadata.contentLength > constraints.maxBytes) {
+      throw new Error(`Image file exceeds the ${constraints.maxBytes / (1024 * 1024)} MiB limit`);
+    }
+
     // Download image file from s3
     job.progress("Downloading image file...");
     const { filePath } = await s3Service.downloadToTemp(imageUrl.key);
@@ -210,15 +252,27 @@ profilePictureUploadQueue.process("profile-picture", async (job) => {
     completed = true;
     return s3Service.generateSecureUrl(finalizedImage.key);
   } catch (error) {
+    const failure = safeUploadFailure(error.message);
+    shouldCleanupStaging = failure.permanent;
+    if (failure.permanent) job.discard();
+    await job.update({
+      ...job.data,
+      failure: { code: failure.code, error: failure.error },
+    }).catch(() => {});
     if (finalizedImage?.key) {
       await s3Service.deleteFile(finalizedImage.key).catch(() => {});
     }
-    console.error(`Job ${job.id} failed:`, error);
+    logDiagnostic(error, {
+      code: failure.code,
+      referenceId,
+      context: 'profile image upload worker',
+      jobId: job.id,
+    });
     throw error; // Propagate error to trigger job failure
   } finally {
     // Cleanup temp files
     await cleanupFiles(tempFiles);
-    if (completed || isFinalJobAttempt(job)) {
+    if (completed || shouldCleanupStaging || isFinalJobAttempt(job)) {
       await s3Service.deleteFile(imageUrl.key).catch(() => {});
     }
   }
